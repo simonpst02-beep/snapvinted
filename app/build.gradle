@@ -17,9 +17,6 @@ android {
         targetSdk 34
         versionCode p[0] * 10000 + p[1] * 100 + p[2]
         versionName ver
-        // Clé API intégrée à la compilation depuis le secret GitHub ANTHROPIC_API_KEY (jamais écrite dans le code).
-        buildConfigField 'String', 'DEFAULT_KEY', '"' + (System.getenv('ANTHROPIC_API_KEY') ?: '').trim() + '"'
-        buildConfigField 'String', 'OPENAI_KEY', '"' + (System.getenv('OPENAI_API_KEY') ?: '').trim() + '"'
         // Mises à jour : dépôt GitHub et jeton en lecture seule (secret GH_UPDATE_TOKEN), fournis par la compilation.
         buildConfigField 'String', 'GH_REPO', '"' + (System.getenv('GITHUB_REPOSITORY') ?: 'simonpst02-beep/snapvinted').trim() + '"'
         buildConfigField 'String', 'GH_TOKEN', '"' + (System.getenv('GH_UPDATE_TOKEN') ?: '').trim() + '"'
@@ -57,6 +54,6 @@ android {
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
-    // Détourage du produit sur le téléphone (gratuit, hors ligne)
-    implementation 'com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1'
+    // Surveillance eBay en arrière-plan
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
 }

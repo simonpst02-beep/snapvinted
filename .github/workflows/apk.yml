@@ -24,20 +24,18 @@ jobs:
           gradle-version: '8.7'
       - name: Compiler
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Préparer le fichier
         id: v
         run: |
           V=$(tr -d ' \r\n' < VERSION)
-          cp app/build/outputs/apk/release/app-release.apk SnapVinted.apk
+          cp app/build/outputs/apk/release/app-release.apk SpyEbay.apk
           echo "version=$V" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: SnapVinted-apk
-          path: SnapVinted.apk
+          name: SpyEbay-apk
+          path: SpyEbay.apk
       - name: Publier la version si elle est nouvelle
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,5 +44,5 @@ jobs:
           if gh release view "$V" >/dev/null 2>&1; then
             echo "La version $V existe déjà : pas de nouvelle publication."
           else
-            gh release create "$V" SnapVinted.apk --target "${GITHUB_SHA}" --title "SnapVinted $V" --generate-notes
+            gh release create "$V" SpyEbay.apk --target "${GITHUB_SHA}" --title "SpyEbay $V" --generate-notes
           fi

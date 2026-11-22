@@ -3,641 +3,233 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>SnapVinted</title>
+<title>SpyEbay</title>
 <style>
-/* VOICE: petit outil de vendeur, direct, chaleureux, rapide au pouce
-   IDEA: l'étiquette de prix accrochée au vêtement : photo, prix, et l'annonce s'écrit dessous
-   PICTURE: la photo de l'article en grand avec son étiquette de prix
-   COLOUR and TYPE: crème clair #f7f4ee, encre #1d1b18, corail #ff5a3c pour l'action ; police système
-   LAYOUT: une colonne, barre d'onglets en bas (Annonce, Assistant, Historique, Réglages) */
-:root{color-scheme:light dark;--bg:light-dark(#f7f4ee,#141312);--card:light-dark(#ffffff,#1f1d1b);--ink:light-dark(#1d1b18,#f1ece4);--mute:light-dark(#6f685f,#a59d92);--line:light-dark(#e6e0d6,#33302c);--acc:#ff5a3c;--acc2:light-dark(#fff0ec,#3a201a);--ok:#1f8a5b}
+/* VOICE: outil de chineur, rapide et sec : ce qui compte, c'est la marge
+   IDEA: la loupe du chineur sur les annonces « pour pièces »
+   PICTURE: la liste triée par bénéfice, la meilleure affaire en tête avec son gain en grand
+   COLOUR and TYPE: papier clair #f5f6f8, encre #15171c, bleu radar #2e5bff, vert gain #1a8f5a, rouge perte #d64545 ; police système
+   LAYOUT: une colonne, barre d'onglets en bas (Annonces, Recherches, Réglages) */
+:root{color-scheme:light dark;--bg:light-dark(#f5f6f8,#111317);--card:light-dark(#ffffff,#1b1e24);--ink:light-dark(#15171c,#eef0f4);--mute:light-dark(#646a76,#9aa1ad);--line:light-dark(#e1e4ea,#2c313a);--acc:#2e5bff;--acc2:light-dark(#e9eeff,#1d2647);--ok:#1a8f5a;--ko:#d64545}
 *{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
 header{padding:calc(env(safe-area-inset-top) + 12px) 16px 8px;display:flex;align-items:center;gap:10px}
 header h1{margin:0;font-size:22px;letter-spacing:-.3px}header h1 b{color:var(--acc)}
-header .sp{margin-left:auto;font-size:13px;color:var(--mute)}
-main{flex:1;overflow:auto;padding:4px 14px 20px}
+header .sp{margin-left:auto;font-size:13px;color:var(--mute);text-align:right}
+main{flex:1;overflow:auto;padding:4px 14px 24px}
 .view{display:none}.view.on{display:block}
-nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card);padding-bottom:env(safe-area-inset-bottom)}
-nav button{border:0;background:none;color:var(--mute);font:600 12px system-ui,sans-serif;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px}
-nav button svg{width:24px;height:24px}
-nav button.on{color:var(--acc)}
+nav{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:var(--card);padding-bottom:env(safe-area-inset-bottom)}
+nav button{border:0;background:none;color:var(--mute);font:600 12px system-ui,sans-serif;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;position:relative}
+nav button svg{width:24px;height:24px}nav button.on{color:var(--acc)}
+nav .dot{position:absolute;top:6px;left:calc(50% + 8px);background:var(--ko);color:#fff;font-size:10px;border-radius:99px;padding:0 5px;line-height:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
 h2{font-size:18px;margin:4px 0 10px}
 label{display:block;font-size:13px;font-weight:600;color:var(--mute);margin:12px 0 4px}
 input,textarea,select{font:16px system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%}
-textarea{min-height:150px;resize:vertical}
+textarea{min-height:90px;resize:vertical}
 input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 button{font:600 16px system-ui,sans-serif;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:48px;padding:0 16px;cursor:pointer}
-.big{width:100%;background:var(--acc);color:#fff;border:0;min-height:54px;font-size:17px}
-.big:disabled{opacity:.5}
-.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
-.photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.ph{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--bg)}
-.ph img{width:100%;height:100%;object-fit:cover;display:block}
-.ph .x{position:absolute;top:4px;right:4px;min-height:30px;width:30px;padding:0;border-radius:99px;background:#000a;color:#fff;border:0;font-size:15px}
-.ph .main{position:absolute;left:4px;bottom:4px;background:var(--acc);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px}
-.add{aspect-ratio:1;border:2px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mute);font-size:13px;font-weight:600;position:relative;cursor:pointer}
-.add svg{width:28px;height:28px}
-.add input{position:absolute;inset:0;opacity:0}
-.hero{position:relative;border-radius:16px;overflow:hidden;background:var(--acc2);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;margin-top:6px}
-.hero img{width:100%;height:100%;object-fit:cover}
-.hero .tag{position:absolute;right:14px;top:14px;background:var(--card);color:var(--ink);border-radius:10px 4px 4px 10px;padding:8px 14px 8px 22px;font-weight:800;font-size:22px;box-shadow:0 6px 18px #0003}
-.hero .tag::before{content:"";position:absolute;left:8px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:99px;background:var(--bg)}
-.hero .empty{text-align:center;color:var(--mute);padding:20px}
-.hero .empty svg{width:64px;height:64px;color:var(--acc)}
-.price{display:flex;align-items:center;gap:8px}.price input{font-size:24px;font-weight:800;text-align:right}.price span{font-size:24px;font-weight:800}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.chip{min-height:36px;padding:0 12px;border-radius:99px;font-size:14px;background:var(--acc2);border-color:transparent}
-.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+.big{width:100%;background:var(--acc);color:#fff;border:0;min-height:54px;font-size:17px}.big:disabled{opacity:.55}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}.row[hidden]{display:none}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
 .hint{font-size:13px;color:var(--mute);margin:6px 0 0}
-.warn{background:var(--acc2);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:10px}
+.chk{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600;font-size:15px;color:var(--ink)}.chk input{width:22px;height:22px;accent-color:var(--acc)}
 .spin{display:inline-block;width:18px;height:18px;border:3px solid #fff6;border-top-color:#fff;border-radius:99px;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:8px}
 @keyframes sp{to{transform:rotate(1turn)}}
-.steps{position:sticky;bottom:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:12px;box-shadow:0 -6px 20px #0002}
-.steps p{margin:0 0 8px;font-size:14px}
-/* assistant */
-#msgs{display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
-.msg{max-width:86%;padding:10px 12px;border-radius:16px;white-space:pre-wrap;font-size:15px}
-.msg.u{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:4px}
-.msg.a{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
-.msg.a .upd{display:block;margin-top:6px;font-size:13px;color:var(--ok);font-weight:700}
-.composer{display:flex;gap:8px;position:sticky;bottom:0;background:var(--bg);padding:8px 0}
-.composer input{flex:1}
-.composer button{background:var(--acc);color:#fff;border:0}
-/* historique */
-.hist{display:flex;gap:10px;align-items:center;padding:8px;border-radius:12px;background:var(--card);border:1px solid var(--line);margin:8px 0;width:100%;text-align:left;font-weight:500}
-.hist img{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;background:var(--bg)}
-.hist .t{flex:1;overflow:hidden}.hist .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hist .t small{color:var(--mute)}
-.badge{font-size:12px;font-weight:700;border-radius:6px;padding:2px 6px;background:var(--acc2);color:var(--acc)}.badge.ok{background:#1f8a5b22;color:var(--ok)}
+.bar{display:flex;gap:8px;align-items:center;margin:6px 0}
+.bar .big{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}.seg button{border:0;border-radius:0;min-height:40px;font-size:14px;padding:0 12px}.seg button[aria-pressed=true]{background:var(--acc);color:#fff}
+.meta{font-size:13px;color:var(--mute);margin:4px 2px 8px}
+.it{display:grid;grid-template-columns:84px minmax(0,1fr);gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;margin:10px 0;width:100%;text-align:left;font-weight:400;min-height:0}
+.it img{width:84px;height:84px;border-radius:10px;object-fit:cover;background:var(--bg)}
+.it .t{font-size:15px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.it .p{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:4px}
+.it .pr{font-weight:800;font-size:17px}.it .sh{font-size:13px;color:var(--mute)}
+.it .g{margin-left:auto;font-weight:800;font-size:17px;white-space:nowrap}.g.up{color:var(--ok)}.g.dn{color:var(--ko)}
+.it .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;background:var(--acc2);color:var(--acc);white-space:nowrap}.tag.new{background:var(--ko);color:#fff}.tag.n{background:var(--bg);color:var(--mute)}
+.top{border:2px solid var(--ok)}
+.rej{font-size:13px;color:var(--mute);background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-top:6px}
+.empty{text-align:center;color:var(--mute);padding:30px 16px}.empty svg{width:72px;height:72px;color:var(--acc)}
+.s{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
+.s .n{flex:1}.s .n b{display:block}.s .n small{color:var(--mute)}
+.s button{min-height:40px;padding:0 12px;font-size:14px}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;z-index:9;display:none;max-width:90%}
-/* éditeur photo */
-.ph .ed{position:absolute;left:4px;top:4px;min-height:30px;width:30px;padding:0;border-radius:99px;background:#000a;color:#fff;border:0;font-size:14px}
-.ph .mv{position:absolute;right:4px;bottom:4px;display:flex;gap:4px}.ph .mv button{min-height:26px;width:26px;padding:0;border-radius:99px;background:#000a;color:#fff;border:0;font-size:13px}
-#editor{position:fixed;inset:0;background:#0e0d0c;color:#f1ece4;z-index:20;display:none;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
-#editor.on{display:flex}
-.ehead{display:flex;align-items:center;gap:8px;padding:8px 10px}.ehead b{flex:1;text-align:center;font-size:16px}
-.ehead button{background:none;border:0;color:#f1ece4;min-height:44px}.ehead .ok{color:var(--acc);font-weight:800}
-#stage{flex:1;position:relative;overflow:hidden;touch-action:none}
-#ecv{position:absolute}
-#crop{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px #000a;touch-action:none}
-#crop::before,#crop::after{content:"";position:absolute;inset:33.33% 0;border-top:1px solid #fff6;border-bottom:1px solid #fff6}
-#crop::after{inset:0 33.33%;border:0;border-left:1px solid #fff6;border-right:1px solid #fff6}
-#crop .h{position:absolute;width:26px;height:26px;border:4px solid #fff;z-index:2}
-#crop .h.tl{left:-5px;top:-5px;border-right:0;border-bottom:0}#crop .h.tr{right:-5px;top:-5px;border-left:0;border-bottom:0}
-#crop .h.bl{left:-5px;bottom:-5px;border-right:0;border-top:0}#crop .h.br{right:-5px;bottom:-5px;border-left:0;border-top:0}
-.etools{background:#1a1816;padding:10px 12px 12px;max-height:46vh;overflow:auto}
-.pane{display:flex;flex-direction:column;gap:10px}.pane[hidden]{display:none}
-.etabs{display:grid;grid-template-columns:repeat(3,1fr);background:#1a1816;border-top:1px solid #2a2724}
-.etabs button{background:none;border:0;color:#a59d92;border-radius:0;min-height:46px;font-size:15px;border-bottom:2px solid transparent}
-.etabs button[aria-selected=true]{color:#fff;border-bottom-color:var(--acc)}
-.lbl{font-size:12px;font-weight:700;color:#a59d92;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
-.sw{flex-wrap:nowrap;overflow-x:auto}.sw button{flex:none;width:64px;min-height:64px;padding:0;border-radius:10px;font-size:11px;display:flex;align-items:flex-end;justify-content:stretch;overflow:hidden;border:2px solid transparent;background-size:cover}
-.sw button span{display:block;width:100%;background:#000a;color:#fff;padding:2px 0;font-weight:600}
-.sw button[aria-pressed=true]{border-color:var(--acc)}
-.etools input{background:#0e0d0c;color:#f1ece4;border-color:#2a2724}
-.sl[hidden],.etools .row[hidden]{display:none}
-#brushDot{position:absolute;border:2px solid #fff;border-radius:99px;pointer-events:none;display:none;box-shadow:0 0 0 1px #000a}
-.etools .row button{background:#2a2724;color:#f1ece4;border:0;min-height:44px;font-size:14px}
-.etools .row button[aria-pressed=true]{background:var(--acc);color:#fff}
-.ebusy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#000a;font-weight:700;z-index:3}.ebusy.on{display:flex}
-.sl{display:grid;grid-template-columns:96px 1fr 40px;align-items:center;gap:8px;font-size:13px}
-.sl input{padding:0;accent-color:var(--acc);border:0;background:none}
-.sl span:last-child{text-align:right;color:#a59d92}
+ol.steps{padding-left:20px;margin:6px 0 0;font-size:14px}ol.steps li{margin:4px 0}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 </style>
 </head>
 <body>
-<header><h1>Snap<b>Vinted</b></h1><span class="sp" id="hdr">Photo + prix = annonce</span></header>
+<header><h1>Spy<b>Ebay</b></h1><span class="sp" id="hdr">Annonces « pour pièces »</span></header>
 <main>
-  <!-- ================= ANNONCE ================= -->
-  <section class="view on" id="v-new">
-    <div class="hero" id="hero">
-      <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><div>Ajoutez une ou plusieurs photos de l'article</div></div>
-    </div>
+  <section class="view on" id="v-buy">
+    <div class="bar"><button class="big" id="scan">Scanner eBay</button></div>
+    <div class="bar"><span class="meta" id="lastScan" style="flex:1;margin:0"></span>
+      <div class="seg" role="group" aria-label="Tri"><button data-sort="profit" aria-pressed="true">Bénéfice</button><button data-sort="new" aria-pressed="false">Récentes</button><button data-sort="price" aria-pressed="false">Prix</button></div></div>
+    <div id="results"></div>
+  </section>
+
+  <section class="view" id="v-search">
     <div class="card">
-      <div class="photos" id="photos"></div>
-      <div class="row" style="margin-top:10px">
-        <label class="add" style="aspect-ratio:auto;min-height:52px;flex-direction:row;margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Appareil photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
-        <label class="add" style="aspect-ratio:auto;min-height:52px;flex-direction:row;margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Galerie<input type="file" accept="image/*" multiple id="galIn"></label>
+      <h2 id="formTitle">Nouvelle recherche</h2>
+      <label for="q-name">Nom</label><input id="q-name" placeholder="ex. iPhone 12">
+      <label for="q-q">Mots-clés eBay</label><input id="q-q" placeholder="ex. iPhone 12 -pro -mini">
+      <p class="hint">Un « - » devant un mot l'exclut. L'état « Pour pièces ou ne fonctionne pas » est ajouté automatiquement.</p>
+      <div class="two">
+        <div><label for="q-max">Prix max (€, hors livraison)</label><input id="q-max" inputmode="decimal" placeholder="120"></div>
+        <div><label for="q-resale">Prix de revente réparé (€)</label><input id="q-resale" inputmode="decimal" placeholder="260"></div>
       </div>
-      <label for="price">Prix de vente</label>
-      <div class="price"><input id="price" inputmode="decimal" placeholder="15" autocomplete="off"><span>€</span></div>
-      <label for="hint">Infos utiles (facultatif)</label>
-      <input id="hint" placeholder="ex. marque Zara, taille M, petite tache sur la manche" autocomplete="off">
-      <div style="margin-top:14px"><button class="big" id="gen">Générer l'annonce</button></div>
-      <p class="hint" id="genHint"></p>
+      <label for="q-parts">Coût des pièces à prévoir (€)</label><input id="q-parts" inputmode="decimal" placeholder="30">
+      <p class="hint">Le prix de revente sert à calculer le bénéfice : regardez sur eBay les « Objets vendus » de ce modèle en bon état.</p>
+      <div class="row" style="margin-top:12px"><button class="big" id="saveSearch" style="min-height:48px;font-size:16px">Ajouter la recherche</button></div>
+      <div class="row" style="margin-top:8px" id="cancelRow" hidden><button id="cancelEdit">Annuler la modification</button></div>
     </div>
-
-    <div id="result" hidden>
-      <div class="card">
-        <h2>Votre annonce</h2>
-        <label for="f-titre">Titre</label><input id="f-titre" data-f="titre" maxlength="100">
-        <label for="f-desc">Description</label><textarea id="f-desc" data-f="description"></textarea>
-        <div class="kv">
-          <div><label for="f-marque">Marque</label><input id="f-marque" data-f="marque"></div>
-          <div><label for="f-taille">Taille</label><input id="f-taille" data-f="taille"></div>
-          <div><label for="f-etat">État</label><select id="f-etat" data-f="etat"><option>Neuf avec étiquette</option><option>Neuf sans étiquette</option><option>Très bon état</option><option>Bon état</option><option>Satisfaisant</option></select></div>
-          <div><label for="f-couleur">Couleur</label><input id="f-couleur" data-f="couleur"></div>
-          <div><label for="f-matiere">Matière</label><input id="f-matiere" data-f="matiere"></div>
-          <div><label for="f-prix">Prix (€)</label><input id="f-prix" data-f="prix" inputmode="decimal"></div>
-        </div>
-        <label for="f-cat">Catégorie Vinted</label><input id="f-cat" data-f="categorie">
-        <div id="priceAdvice" class="warn" hidden></div>
-        <div id="verify" class="warn" hidden></div>
-        <div class="row" style="margin-top:12px"><button id="cpTitle">Copier le titre</button><button id="cpDesc">Copier la description</button></div>
-        <div class="row" style="margin-top:8px"><button id="toChat">Améliorer avec l'assistant</button><button id="share">Partager…</button></div>
-      </div>
-      <button class="big" id="publish">Publier sur Vinted</button>
-      <p class="hint">Les photos sont enregistrées dans votre galerie (album SnapVinted), la description est copiée, puis Vinted s'ouvre : il ne reste qu'à coller et valider.</p>
-      <div class="steps" id="steps" hidden>
-        <p><b>Dans Vinted :</b> ajoutez les photos de l'album SnapVinted, puis collez le titre et la description.</p>
-        <div class="row"><button id="stTitle">Copier le titre</button><button id="stDesc">Copier la description</button></div>
-        <div class="row" style="margin-top:8px"><button id="stDone">C'est publié ✓</button><button id="stClose">Fermer</button></div>
-      </div>
-    </div>
+    <h2 style="margin-top:16px">Mes recherches</h2>
+    <div id="searches"></div>
   </section>
 
-  <!-- ================= ASSISTANT ================= -->
-  <section class="view" id="v-chat">
-    <div class="card" style="margin-bottom:6px"><b>Assistant de vente</b><p class="hint" style="margin-top:4px">Demandez-lui de modifier l'annonce en cours, ou posez une question sur la vente (prix, envoi, négociation…).</p>
-      <div class="chips" id="quick"></div></div>
-    <div id="msgs"></div>
-    <form class="composer" id="chatForm"><input id="chatIn" placeholder="ex. rends la description plus courte" autocomplete="off" aria-label="Message"><button aria-label="Envoyer">➤</button></form>
-  </section>
-
-  <!-- ================= HISTORIQUE ================= -->
-  <section class="view" id="v-hist">
-    <h2 style="margin-top:8px">Mes annonces</h2>
-    <div id="histList"></div>
-  </section>
-
-  <!-- ================= RÉGLAGES ================= -->
   <section class="view" id="v-set">
     <div class="card">
-      <h2>Intelligence artificielle</h2>
-      <label for="s-key">Clé API Claude (Anthropic)</label>
-      <input id="s-key" type="password" placeholder="sk-ant-…" autocomplete="off">
-      <p class="hint" id="keyHint">Créez-la sur console.anthropic.com → API Keys. Elle reste uniquement sur ce téléphone.</p>
-      <label for="s-model">Modèle</label>
-      <select id="s-model"><option value="claude-haiku-5-5">Rapide et économique (Haiku)</option><option value="claude-sonnet-5-5">Meilleure qualité (Sonnet)</option></select>
-      <div class="row" style="margin-top:12px"><button id="s-test">Tester la clé</button></div>
-      <p class="hint" id="s-testRes"></p>
+      <h2>Filtres</h2>
+      <label for="f-ex">Mots exclus (un par ligne)</label>
+      <textarea id="f-ex"></textarea>
+      <p class="hint">Une annonce dont le titre contient un de ces mots est écartée (accents ignorés).</p>
+      <div class="two">
+        <div><label for="f-min">Bénéfice minimum (€)</label><input id="f-min" inputmode="decimal"></div>
+        <div><label for="f-fees">Frais de revente (%)</label><input id="f-fees" inputmode="decimal"></div>
+      </div>
+      <label for="f-fb">Note minimale du vendeur (%)</label><input id="f-fb" inputmode="decimal">
+      <label class="chk"><input type="checkbox" id="f-eu"> Vendeurs de l'Union européenne seulement (pas de douane)</label>
+      <label for="f-market">Site eBay</label>
+      <select id="f-market"><option value="EBAY_FR">eBay France</option><option value="EBAY_DE">eBay Allemagne</option><option value="EBAY_IT">eBay Italie</option><option value="EBAY_ES">eBay Espagne</option><option value="EBAY_BE">eBay Belgique</option><option value="EBAY_NL">eBay Pays-Bas</option></select>
     </div>
     <div class="card">
-      <h2>Photos de fond par IA</h2>
-      <label for="s-okey">Clé API OpenAI (facultatif)</label>
-      <input id="s-okey" type="password" placeholder="sk-…" autocomplete="off">
-      <p class="hint" id="okeyHint">Uniquement pour le bouton « Photo IA » de l'éditeur (décor réaliste, quelques centimes par image). Créez-la sur platform.openai.com → API keys.</p>
-      <label for="s-imgModel">Modèle d'image</label>
-      <select id="s-imgModel"><option value="gpt-image-2.5-flare">Rapide (gpt-image-2.5-flare)</option><option value="gpt-image-2.5-sunburst">Plus précis (gpt-image-2.5-sunburst)</option></select>
+      <h2>Surveillance automatique</h2>
+      <label for="f-every">Vérifier les nouvelles annonces</label>
+      <select id="f-every"><option value="0">Désactivée</option><option value="15">Toutes les 15 minutes</option><option value="30">Toutes les 30 minutes</option><option value="60">Toutes les heures</option><option value="180">Toutes les 3 heures</option></select>
+      <p class="hint">Une notification arrive quand une nouvelle annonce passe tous vos filtres, même appli fermée. Android peut décaler un peu les vérifications pour économiser la batterie.</p>
+    </div>
+    <div class="card">
+      <h2>Clés eBay</h2>
+      <label for="k-app">App ID (Client ID)</label><input id="k-app" autocomplete="off" placeholder="VotreNom-SpyEbay-PRD-…">
+      <label for="k-cert">Cert ID (Client Secret)</label><input id="k-cert" type="password" autocomplete="off" placeholder="PRD-…">
+      <div class="row" style="margin-top:12px"><button id="k-test">Tester les clés</button></div>
+      <p class="hint" id="k-res"></p>
+      <ol class="steps">
+        <li>Créez un compte gratuit sur developer.ebay.com.</li>
+        <li>Menu <b>Application Keys</b> → créez un jeu de clés <b>Production</b>.</li>
+        <li>Copiez ici l'<b>App ID</b> et le <b>Cert ID</b>. Elles restent sur ce téléphone.</li>
+      </ol>
     </div>
     <div class="card">
       <h2>Mise à jour</h2>
       <p class="hint" style="margin-top:0">Version installée : <b id="curVer">–</b></p>
       <div class="row" style="margin-top:10px"><button class="big" id="updBtn" style="min-height:48px;font-size:16px">Rechercher une mise à jour</button></div>
-      <p class="hint" id="updRes"></p>
+      <p class="hint" id="updRes" style="white-space:pre-wrap"></p>
     </div>
-    <div class="card">
-      <h2>Style des annonces</h2>
-      <label for="s-ton">Ton</label>
-      <select id="s-ton"><option value="simple">Simple et clair</option><option value="vendeur">Vendeur et dynamique</option><option value="detaille">Détaillé et précis</option></select>
-      <label for="s-emoji">Émojis</label>
-      <select id="s-emoji"><option value="peu">Quelques-uns</option><option value="non">Aucun</option><option value="oui">Beaucoup</option></select>
-      <label for="s-sign">Phrase ajoutée à la fin de chaque description</label>
-      <input id="s-sign" placeholder="ex. Envoi rapide et soigné 📦 N'hésitez pas à faire une offre !">
-    </div>
-    <p class="hint" style="text-align:center">SnapVinted <span id="ver"></span> · application indépendante, non affiliée à Vinted.</p>
+    <p class="hint" style="text-align:center">SpyEbay · application indépendante, non affiliée à eBay. Utilise l'API officielle d'eBay.</p>
   </section>
 </main>
 <nav>
-  <button class="on" data-v="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12 12 20 4 12V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>Annonce</button>
-  <button data-v="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Assistant</button>
-  <button data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Historique</button>
+  <button class="on" data-v="buy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>Annonces<span class="dot" id="newDot" hidden></span></button>
+  <button data-v="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Recherches</button>
   <button data-v="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Réglages</button>
 </nav>
-<div id="editor" role="dialog" aria-label="Modifier la photo">
-  <div class="ehead"><button id="eCancel">Annuler</button><b>Modifier la photo</b><button class="ok" id="eApply">Appliquer</button></div>
-  <div id="stage"><div class="ebusy" id="eBusy"><span class="spin"></span><span id="eBusyT">Détourage du produit…</span></div><canvas id="ecv"></canvas><div id="crop"><i class="h tl" data-h="tl"></i><i class="h tr" data-h="tr"></i><i class="h bl" data-h="bl"></i><i class="h br" data-h="br"></i></div><div id="brushDot"></div></div>
-  <div class="etabs" role="tablist"><button data-t="cadre" aria-selected="true">Cadrage</button><button data-t="lum" aria-selected="false">Lumière</button><button data-t="fond" aria-selected="false">Fond</button></div>
-  <div class="etools">
-    <div class="pane" data-p="cadre">
-      <div class="row"><button id="eL" aria-label="Pivoter à gauche">↺ Gauche</button><button id="eR" aria-label="Pivoter à droite">↻ Droite</button><button id="eReset">Tout annuler</button></div>
-      <div class="row" id="eRatio"><button data-r="0" aria-pressed="true">Libre</button><button data-r="1">1:1</button><button data-r="0.8">4:5</button><button data-r="0.75">3:4</button></div>
-    </div>
-    <div class="pane" data-p="lum" hidden>
-      <div class="row"><button id="eAuto">✨ Amélioration auto</button></div>
-      <label class="sl"><span>Luminosité</span><input type="range" id="eB" min="50" max="150" value="100"><span id="eBv">0</span></label>
-      <label class="sl"><span>Contraste</span><input type="range" id="eC" min="50" max="150" value="100"><span id="eCv">0</span></label>
-      <label class="sl"><span>Couleurs</span><input type="range" id="eS" min="0" max="200" value="100"><span id="eSv">0</span></label>
-    </div>
-    <div class="pane" data-p="fond" hidden>
-      <div class="lbl">1. Détourer le produit</div>
-      <div class="row" id="eCut"><button data-cut="ia">Auto (IA)</button><button data-cut="uni">Fond uni</button></div>
-      <label class="sl" id="tolRow" hidden><span>Tolérance</span><input type="range" id="eTol" min="5" max="80" value="28"><span id="eTolv">28</span></label>
-      <div class="row" id="eBrush"><button data-b="" aria-pressed="true">✋ Cadrer</button><button data-b="erase">Effacer</button><button data-b="restore">Restaurer</button></div>
-      <label class="sl" id="sizeRow" hidden><span>Pinceau</span><input type="range" id="eSize" min="6" max="120" value="36"><span id="eSizev">36</span></label>
-      <div class="lbl">2. Choisir le fond</div>
-      <div class="row sw" id="eBg"></div>
-      <form class="row" id="eGen"><input id="eGenIn" placeholder="ou décrivez : table en bois clair, marbre blanc…" aria-label="Décrire un fond" autocomplete="off"></form>
-      <div class="row"><button id="eGenBtn">🎨 Créer ce fond</button><button id="ePhotoBtn">📷 Photo IA</button></div>
-    </div>
-  </div>
-</div>
 <div class="toast" id="toast"></div>
 <script>
 {
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const A=window.Android||null;
-const ls={get(k,d){try{const v=localStorage.getItem('sv-'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sv-'+k,JSON.stringify(v));return true}catch(e){return false}}};
-const pref={get:k=>A?A.getPref(k):ls.get('p-'+k,''),set:(k,v)=>A?A.setPref(k,v):ls.set('p-'+k,v)};
+const ls={get(k,d){try{const v=localStorage.getItem('se-'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('se-'+k,JSON.stringify(v))}catch(e){}}};
 function toast(m){if(A){A.toast(m);return}const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200)}
-function copy(t,label){if(A)A.copyText(t);else{try{navigator.clipboard.writeText(t)}catch(e){}}toast((label||'Texte')+' copié')}
+const num=v=>{const n=parseFloat(String(v??'').replace(',','.'));return isFinite(n)?n:0};
+const eur=n=>Math.round(n).toLocaleString('fr-FR')+' €';
 
-/* ---------- état ---------- */
-let photos=[];      // {full, ai, thumb}
-let listing=null;   // annonce en cours
-let currentId=null; // id dans l'historique
-let chat=[];        // {role, content}
-let history=ls.get('history',[]);
+/* ---------- réglages (partagés avec la surveillance en arrière-plan) ---------- */
+const DEFAULT_EX=['icloud','bloque','verrouille','locked','compte google','frp','mdm','blacklist','oxyde','oxydation','tombe dans l\'eau','water damage','sans carte mere','carte mere manquante','coque seule','box only','boite seule','boite vide'];
+let cfg=Object.assign({appId:'',certId:'',market:'EBAY_FR',searches:[],exclude:DEFAULT_EX,minProfit:30,fees:0,minFeedback:97,euOnly:true,every:0},JSON.parse(A?A.ebayGetConfig():JSON.stringify(ls.get('cfg',{}))));
+function save(){const j=JSON.stringify(cfg);if(A)A.ebaySaveConfig(j);else ls.set('cfg',cfg)}
 
 /* ---------- navigation ---------- */
-function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('main').scrollTop=0;if(v==='hist')renderHist();if(v==='chat')setTimeout(()=>$('main').scrollTop=1e6,30)}
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('main').scrollTop=0}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
-window.onBack=()=>{if($('#editor').classList.contains('on')){$('#editor').classList.remove('on');return true}const on=document.querySelector('.view.on').id;if(on!=='v-new'){show('new');return true}return false};
+window.openTab=t=>{show(t);if(t==='buy')scan()};
+window.onBack=()=>{if(!$('#v-buy').classList.contains('on')){show('buy');return true}return false};
 
-/* ---------- photos ---------- */
-function resize(file,max,q){return new Promise(res=>{const u=URL.createObjectURL(file),im=new Image();
-  im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',q))};
-  im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
-async function addFiles(files){
-  for(const f of files){if(photos.length>=20)break;const full=await resize(f,2048,.9);if(!full)continue;
-    photos.push({orig:full,full,ai:await resize(f,1024,.8),thumb:await resize(f,320,.7),ed:null})}
-  renderPhotos();
+/* ---------- recherches ---------- */
+let editing=-1;
+function renderSearches(){
+  $('#searches').innerHTML=cfg.searches.length?cfg.searches.map((s,i)=>`<div class="s"><div class="n"><b>${esc(s.name||s.q)}</b><small>« ${esc(s.q)} »${s.maxPrice?' · max '+eur(s.maxPrice):''}${s.resale?' · revente '+eur(s.resale):''}${s.parts?' · pièces '+eur(s.parts):''}</small></div><button data-edit="${i}">Modifier</button><button data-del="${i}" aria-label="Supprimer">✕</button></div>`).join(''):'<p class="hint">Aucune recherche. Ajoutez les modèles que vous rachetez, par exemple « iPhone 12 » ou « MacBook Air M1 ».</p>';
 }
-function renderPhotos(){
-  $('#photos').innerHTML=photos.map((p,i)=>`<div class="ph"><img src="${p.thumb}" alt="Photo ${i+1}" data-ed="${i}">${i?'':'<span class="main">Principale</span>'}<button class="ed" data-ed="${i}" aria-label="Modifier la photo">✎</button><button class="x" data-rm="${i}" aria-label="Retirer la photo">✕</button><span class="mv">${i?`<button data-mv="${i}" data-d="-1" aria-label="Avancer">‹</button>`:''}${i<photos.length-1?`<button data-mv="${i}" data-d="1" aria-label="Reculer">›</button>`:''}</span></div>`).join('');
-  $('#photos').style.display=photos.length?'grid':'none';
-  const pr=$('#price').value.trim();
-  $('#hero').innerHTML=photos.length?`<img src="${photos[0].full}" alt="Photo principale">${pr?`<span class="tag">${esc(pr)} €</span>`:''}`:$('#hero').dataset.empty;
-}
-$('#hero').dataset.empty=$('#hero').innerHTML;
-$('#photos').onclick=e=>{const t=e.target.closest('[data-rm],[data-ed],[data-mv]');if(!t)return;
-  if(t.dataset.rm!==undefined){photos.splice(+t.dataset.rm,1);renderPhotos()}
-  else if(t.dataset.mv!==undefined){const i=+t.dataset.mv,j=i+(+t.dataset.d);[photos[i],photos[j]]=[photos[j],photos[i]];renderPhotos()}
-  else openEditor(+t.dataset.ed)};
-$('#camIn').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
-$('#galIn').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
-$('#price').oninput=renderPhotos;
-
-/* ---------- éditeur de photo ---------- */
-const E={i:-1,img:null,raw:null,base:null,mask:null,fgc:null,bgc:null,bgKey:'',bg:'',bgP:null,bgImg:null,rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100,box:null,brush:''};
-function loadImg(src){return new Promise((r,j)=>{const im=new Image();im.onload=()=>r(im);im.onerror=()=>j(new Error('Image illisible'));im.src=src})}
-const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c};
-function rot90(src,dir){const c=mk(src.height,src.width),x=c.getContext('2d');x.translate(c.width/2,c.height/2);x.rotate(dir*Math.PI/2);x.drawImage(src,-src.width/2,-src.height/2);return c}
-function rotBase(){const im=E.img,q=E.rot%4,c=mk(q%2?im.height:im.width,q%2?im.width:im.height);
-  const x=c.getContext('2d');x.translate(c.width/2,c.height/2);x.rotate(q*Math.PI/2);x.drawImage(im,-im.width/2,-im.height/2);E.raw=c;E.bgc=null;rebuild()}
-function rebuild(){if(E.mask&&E.bg){buildFg();compose()}else E.base=E.raw}
-function buildFg(){const W=E.raw.width,H=E.raw.height,c=mk(W,H),x=c.getContext('2d');x.drawImage(E.raw,0,0);x.globalCompositeOperation='destination-in';x.drawImage(E.mask,0,0,W,H);E.fgc=c}
-const filt=()=>`brightness(${E.b/100}) contrast(${E.c/100}) saturate(${E.s/100})`;
-
-/* ----- fonds dessinés dans l'appli ----- */
-const PRESETS={blanc:{type:'uni',c1:'#ffffff'},gris:{type:'uni',c1:'#ecebe8'},beige:{type:'uni',c1:'#f2ece3'},studio:{type:'studio',c1:'#ffffff',c2:'#d6d3ce'},
-  bois:{type:'bois',c1:'#cfa274',c2:'#94643c'},marbre:{type:'marbre',c1:'#f5f3f0',c2:'#8f8a85'},lin:{type:'lin',c1:'#e7ddcc',c2:'#c9b99f'},beton:{type:'beton',c1:'#c3c0ba',c2:'#8c8984'},
-  papier:{type:'papier',c1:'#faf7f1',c2:'#e4ddd1'},rose:{type:'degrade',c1:'#fde8e6',c2:'#f0c4c6'},sauge:{type:'degrade',c1:'#e6ede3',c2:'#bccbb6'},nuit:{type:'degrade',c1:'#3b404c',c2:'#15171c'}};
-const NAMES={blanc:'Blanc',gris:'Gris',beige:'Beige',studio:'Studio',bois:'Bois',marbre:'Marbre',lin:'Lin',beton:'Béton',papier:'Papier',rose:'Rose',sauge:'Sauge',nuit:'Nuit'};
-function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function hex(c){c=c.replace('#','');if(c.length===3)c=c.split('').map(v=>v+v).join('');const n=parseInt(c,16)||0;return[n>>16&255,n>>8&255,n&255]}
-function mixc(a,b,t){const A=hex(a),B=hex(b);return`rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')})`}
-function noise(x,W,H,alpha,seed){const n=mk(256,256),nx=n.getContext('2d'),d=nx.createImageData(256,256),r=rng(seed);for(let i=0;i<d.data.length;i+=4){const v=r()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255}nx.putImageData(d,0,0);
-  x.save();x.globalAlpha=alpha;x.globalCompositeOperation='overlay';x.fillStyle=x.createPattern(n,'repeat');x.fillRect(0,0,W,H);x.restore()}
-function drawBg(x,W,H,P){
-  const r=rng(7),u=Math.max(W,H)/1000,c1=P.c1||'#fff',c2=P.c2||mixc(c1,'#000',.15);
-  x.save();
-  if(P.type==='degrade'){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,c1);g.addColorStop(1,c2);x.fillStyle=g;x.fillRect(0,0,W,H)}
-  else if(P.type==='studio'){const g=x.createRadialGradient(W/2,H*.42,0,W/2,H*.42,Math.max(W,H)*.75);g.addColorStop(0,c1);g.addColorStop(1,c2);x.fillStyle=g;x.fillRect(0,0,W,H)}
-  else if(P.type==='bois'){const n=7,ph=H/n;for(let k=0;k<n;k++){const y=k*ph,base=mixc(c1,c2,r()*.45);x.fillStyle=base;x.fillRect(0,y,W,ph+1);
-      for(let g=0;g<ph/(3*u);g++){const gy=y+r()*ph,amp=(1+r()*3)*u,f=.002+r()*.006;x.beginPath();for(let gx=0;gx<=W;gx+=8*u){const yy=gy+Math.sin(gx*f/u+g)*amp;gx?x.lineTo(gx,yy):x.moveTo(gx,yy)}
-        x.strokeStyle=`rgba(60,35,15,${.04+r()*.09})`;x.lineWidth=(.6+r()*1.6)*u;x.stroke()}
-      x.fillStyle='rgba(40,22,8,.45)';x.fillRect(0,y,W,1.6*u);const j=r()*W;x.fillRect(j,y,1.4*u,ph)}}
-  else if(P.type==='marbre'){x.fillStyle=c1;x.fillRect(0,0,W,H);
-    for(let v=0;v<9;v++){let px=r()*W,py=-20,ang=Math.PI/2+(r()-.5)*1.2;x.beginPath();x.moveTo(px,py);
-      while(py<H+20&&px>-50&&px<W+50){ang+=(r()-.5)*.5;const s=25*u;const nx=px+Math.cos(ang)*s,ny=py+Math.sin(ang)*s;x.quadraticCurveTo(px+(r()-.5)*s,py+(r()-.5)*s,nx,ny);px=nx;py=ny}
-      x.strokeStyle=c2;x.globalAlpha=v<3?.35:.15;x.lineWidth=(v<3?2.2:1)*u;x.filter=`blur(${(v<3?1.2:.6)*u}px)`;x.stroke();x.filter='none';x.globalAlpha=1}}
-  else if(P.type==='lin'){x.fillStyle=c1;x.fillRect(0,0,W,H);const t=mk(12,12),tx=t.getContext('2d');tx.fillStyle=c2;tx.globalAlpha=.18;for(let i=0;i<12;i+=3){tx.fillRect(0,i,12,1);tx.fillRect(i+1,0,1,12)}
-    x.save();x.scale(u,u);x.fillStyle=x.createPattern(t,'repeat');x.fillRect(0,0,W/u,H/u);x.restore()}
-  else if(P.type==='beton'){x.fillStyle=c1;x.fillRect(0,0,W,H);for(let b=0;b<60;b++){const bx=r()*W,by=r()*H,rr=(60+r()*260)*u,g=x.createRadialGradient(bx,by,0,bx,by,rr);g.addColorStop(0,c2);g.addColorStop(1,'transparent');x.globalAlpha=.12;x.fillStyle=g;x.fillRect(bx-rr,by-rr,rr*2,rr*2)}x.globalAlpha=1}
-  else {x.fillStyle=c1;x.fillRect(0,0,W,H)}
-  x.restore();
-  if(P.type!=='uni')noise(x,W,H,P.type==='beton'?.22:P.type==='papier'?.12:.06,3);
-  /* lumière douce venant du haut, coins légèrement assombris */
-  const l=x.createRadialGradient(W/2,H*.2,0,W/2,H*.2,Math.max(W,H)*.9);l.addColorStop(0,'rgba(255,255,255,.16)');l.addColorStop(.6,'rgba(255,255,255,0)');l.addColorStop(1,'rgba(0,0,0,.10)');x.fillStyle=l;x.fillRect(0,0,W,H);
-}
-function bgCanvas(){const W=E.raw.width,H=E.raw.height,key=E.bg+JSON.stringify(E.bgP||'')+W+'x'+H+(E.bgImg?E.bgImg.src.length:0);if(E.bgc&&E.bgKey===key)return E.bgc;
-  const c=mk(W,H),x=c.getContext('2d');
-  if(E.bg==='photo'&&E.bgImg){const im=E.bgImg,k=Math.max(W/im.width,H/im.height);x.drawImage(im,(W-im.width*k)/2,(H-im.height*k)/2,im.width*k,im.height*k)}
-  else drawBg(x,W,H,E.bg==='custom'?E.bgP:PRESETS[E.bg]||PRESETS.blanc);
-  E.bgc=c;E.bgKey=key;return c}
-function compose(){
-  const W=E.raw.width,H=E.raw.height,c=mk(W,H),x=c.getContext('2d');x.drawImage(bgCanvas(),0,0);
-  const sw=160,sh=Math.max(1,Math.round(160*H/W)),s=mk(sw,sh),sx=s.getContext('2d');sx.drawImage(E.fgc,0,0,sw,sh);
-  const d=sx.getImageData(0,0,sw,sh).data;let x0=sw,x1=0,y0=sh,y1=0;
-  for(let y=0;y<sh;y++)for(let i=0;i<sw;i++)if(d[(y*sw+i)*4+3]>60){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y}
-  if(x1>x0){const k=W/sw,cx=(x0+x1)/2*k,by=y1*k,rx=(x1-x0)/2*k*.85,ry=Math.max(6,(y1-y0)*k*.035);
-    x.save();x.filter=`blur(${Math.round(ry*1.2)}px)`;x.fillStyle='rgba(0,0,0,.22)';x.beginPath();x.ellipse(cx,by-ry*.3,rx,ry,0,0,7);x.fill();x.restore()}
-  x.drawImage(E.fgc,0,0);E.base=c;
-}
-function renderSwatches(){
-  const keys=Object.keys(PRESETS),sw=k=>{const c=mk(64,64);drawBg(c.getContext('2d'),64,64,PRESETS[k]);return c.toDataURL()};
-  if(!renderSwatches.cache)renderSwatches.cache=Object.fromEntries(keys.map(k=>[k,sw(k)]));
-  const C=renderSwatches.cache;
-  $('#eBg').innerHTML=`<button data-bg="" style="background:#2a2724"><span>Original</span></button>`
-    +(E.bgP?`<button data-bg="custom" style="background-image:url(${(()=>{const c=mk(64,64);drawBg(c.getContext('2d'),64,64,E.bgP);return c.toDataURL()})()})"><span>Créé</span></button>`:'')
-    +(E.bgImg?`<button data-bg="photo" style="background-image:url(${E.bgImg.src})"><span>Photo IA</span></button>`:'')
-    +keys.map(k=>`<button data-bg="${k}" style="background-image:url(${C[k]})"><span>${NAMES[k]}</span></button>`).join('');
-  syncTools();
-}
-
-/* ----- ouverture, affichage, cadrage ----- */
-async function openEditor(i){
-  const p=photos[i];if(!p)return;E.i=i;E.img=await loadImg(p.orig||p.full);
-  const d=p.ed||{};Object.assign(E,{rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100,bg:'',bgP:null,brush:''},JSON.parse(JSON.stringify(d)));
-  E.mask=null;E.bgImg=p.bgPhoto?await loadImg(p.bgPhoto):null;E.bgc=null;
-  rotBase();
-  if(p.mask){const m=await loadImg(p.mask);E.mask=mk(E.raw.width,E.raw.height);E.mask.getContext('2d').drawImage(m,0,0,E.raw.width,E.raw.height)}
-  if(!E.mask&&E.bg)E.bg='';
-  rebuild();renderSwatches();tab('cadre');$('#editor').classList.add('on');requestAnimationFrame(drawE);
-}
-function syncTools(){$('#eB').value=E.b;$('#eC').value=E.c;$('#eS').value=E.s;
-  $('#eBv').textContent=E.b-100;$('#eCv').textContent=E.c-100;$('#eSv').textContent=E.s-100;
-  document.querySelectorAll('#eRatio button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.r===E.ratio));
-  document.querySelectorAll('#eBg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.bg===E.bg));
-  document.querySelectorAll('#eBrush button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.b===E.brush));
-  $('#sizeRow').hidden=!E.brush;$('#crop').style.display=E.brush?'none':'block'}
-function drawE(){
-  const st=$('#stage').getBoundingClientRect(),W=E.base.width,H=E.base.height,k=Math.min((st.width-24)/W,(st.height-24)/H),dw=W*k,dh=H*k,cv=$('#ecv'),dpr=devicePixelRatio||1;
-  cv.width=Math.round(dw*dpr);cv.height=Math.round(dh*dpr);cv.style.width=dw+'px';cv.style.height=dh+'px';cv.style.left=(st.width-dw)/2+'px';cv.style.top=(st.height-dh)/2+'px';
-  const x=cv.getContext('2d');x.filter=filt();x.drawImage(E.base,0,0,cv.width,cv.height);
-  E.box={left:(st.width-dw)/2,top:(st.height-dh)/2,w:dw,h:dh};placeCrop();
-}
-let drawQ=0;const redraw=()=>{if(!drawQ)drawQ=requestAnimationFrame(()=>{drawQ=0;drawE()})};
-function placeCrop(){const b=E.box,c=E.crop,el=$('#crop');Object.assign(el.style,{left:b.left+c.x*b.w+'px',top:b.top+c.y*b.h+'px',width:c.w*b.w+'px',height:c.h*b.h+'px'})}
-function setRatio(r){E.ratio=r;if(r){const W=E.raw.width,H=E.raw.height;let w=W,h=W/r;if(h>H){h=H;w=H*r}E.crop={x:(1-w/W)/2,y:(1-h/H)/2,w:w/W,h:h/H}}else E.crop={x:0,y:0,w:1,h:1};syncTools();placeCrop()}
-let drag=null;
-$('#crop').addEventListener('pointerdown',e=>{e.preventDefault();$('#crop').setPointerCapture(e.pointerId);drag={h:e.target.dataset.h||'move',x:e.clientX,y:e.clientY,c:{...E.crop}}});
-$('#crop').addEventListener('pointermove',e=>{if(!drag)return;const b=E.box,dx=(e.clientX-drag.x)/b.w,dy=(e.clientY-drag.y)/b.h,o=drag.c,min=.08;let{x,y,w,h}=o;
-  if(drag.h==='move'){x=Math.min(Math.max(0,o.x+dx),1-o.w);y=Math.min(Math.max(0,o.y+dy),1-o.h)}
-  else{const L=drag.h.includes('l'),T=drag.h.includes('t');
-    let nx=L?Math.min(Math.max(0,o.x+dx),o.x+o.w-min):o.x,nr=L?o.x+o.w:Math.max(Math.min(1,o.x+o.w+dx),o.x+min);
-    let ny=T?Math.min(Math.max(0,o.y+dy),o.y+o.h-min):o.y,nb=T?o.y+o.h:Math.max(Math.min(1,o.y+o.h+dy),o.y+min);
-    x=nx;w=nr-nx;y=ny;h=nb-ny;
-    if(E.ratio){const W=E.raw.width,H=E.raw.height;let hh=w*W/E.ratio/H;if(hh>1){hh=1;w=hh*H*E.ratio/W;if(L)x=nr-w}h=hh;if(T)y=nb-h;if(y<0){y=0;h=nb;w=h*H*E.ratio/W;if(L)x=nr-w}if(y+h>1){h=1-y;w=h*H*E.ratio/W;if(L)x=nr-w}}}
-  E.crop={x,y,w,h};placeCrop()});
-$('#crop').addEventListener('pointerup',()=>drag=null);$('#crop').addEventListener('pointercancel',()=>drag=null);
-function turn(dir){E.rot=(E.rot+dir+4)%4;if(E.mask)E.mask=rot90(E.mask,dir);rotBase();setRatio(E.ratio);drawE()}
-$('#eL').onclick=()=>turn(-1);$('#eR').onclick=()=>turn(1);
-$('#eRatio').onclick=e=>{const b=e.target.closest('[data-r]');if(b)setRatio(+b.dataset.r)};
-[['eB','b'],['eC','c'],['eS','s']].forEach(([id,k])=>$('#'+id).oninput=e=>{E[k]=+e.target.value;syncTools();redraw()});
-$('#eReset').onclick=()=>{Object.assign(E,{rot:0,b:100,c:100,s:100,bg:'',bgP:null,brush:''});E.mask=null;rotBase();setRatio(0);renderSwatches();drawE()};
-$('#eAuto').onclick=()=>{const c=mk(64,64),x=c.getContext('2d');x.drawImage(E.raw,0,0,64,64);
-  const d=x.getImageData(0,0,64,64).data;let sum=0,sq=0,n=d.length/4;for(let i=0;i<d.length;i+=4){const l=.299*d[i]+.587*d[i+1]+.114*d[i+2];sum+=l;sq+=l*l}
-  const mean=sum/n,sd=Math.sqrt(Math.max(0,sq/n-mean*mean));
-  E.b=Math.round(Math.min(140,Math.max(85,100*(135/Math.max(mean,30))**.6)));E.c=Math.round(Math.min(135,Math.max(100,100*(60/Math.max(sd,20))**.35)));E.s=110;syncTools();drawE()};
-function tab(t){document.querySelectorAll('.etabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));document.querySelectorAll('.pane').forEach(p=>p.hidden=p.dataset.p!==t);if(t!=='fond'&&E.brush){E.brush='';syncTools()}}
-document.querySelectorAll('.etabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
-function busy(on,t){$('#eBusy').classList.toggle('on',on);if(t)$('#eBusyT').textContent=t}
-
-/* ----- détourage ----- */
-const bgPending={};
-window.__bgDone=(id,ok,v)=>{const p=bgPending[id];if(!p)return;delete bgPending[id];ok?p.res(v):p.rej(new Error(v))};
-function cutIA(){
-  if(!A||!A.removeBackground)return Promise.reject(new Error('Le détourage automatique fonctionne dans l’application Android. Essayez « Fond uni ».'));
-  const k=Math.min(1,2048/Math.max(E.raw.width,E.raw.height)),c=mk(Math.round(E.raw.width*k),Math.round(E.raw.height*k));c.getContext('2d').drawImage(E.raw,0,0,c.width,c.height);
-  return new Promise((res,rej)=>{const id='b'+Date.now();bgPending[id]={res,rej};A.removeBackground(c.toDataURL('image/jpeg',.92),id)});
-}
-/* masque en niveaux de gris (blanc = produit) -> masque alpha à la taille de la photo */
-async function grayToMask(src){const im=await loadImg(src),W=E.raw.width,H=E.raw.height,c=mk(W,H),x=c.getContext('2d');x.drawImage(im,0,0,W,H);
-  const d=x.getImageData(0,0,W,H),a=d.data;for(let i=0;i<a.length;i+=4){const v=a[i];a[i+3]=v;a[i]=a[i+1]=a[i+2]=255}x.putImageData(d,0,0);return c}
-/* « Fond uni » : remplit le fond depuis les bords tant que la couleur reste proche */
-function cutUni(tol){
-  const W=E.raw.width,H=E.raw.height,k=Math.min(1,700/Math.max(W,H)),w=Math.max(2,Math.round(W*k)),h=Math.max(2,Math.round(H*k)),s=mk(w,h),sx=s.getContext('2d');sx.drawImage(E.raw,0,0,w,h);
-  const d=sx.getImageData(0,0,w,h).data,N=w*h,bgm=new Uint8Array(N),q=new Int32Array(N);let qh=0,qt=0;
-  const border=[];for(let i=0;i<w;i++){border.push(i,(h-1)*w+i)}for(let j=0;j<h;j++){border.push(j*w,j*w+w-1)}
-  const ch=[0,1,2].map(c=>border.map(p=>d[p*4+c]).sort((a,b)=>a-b)[border.length>>1]);
-  const T=(tol*2.6)**2,near=p=>{const dr=d[p*4]-ch[0],dg=d[p*4+1]-ch[1],db=d[p*4+2]-ch[2];return dr*dr+dg*dg+db*db<T};
-  for(const p of border)if(!bgm[p]&&near(p)){bgm[p]=1;q[qt++]=p}
-  while(qh<qt){const p=q[qh++],x=p%w,y=(p/w)|0;for(const n of [x>0?p-1:-1,x<w-1?p+1:-1,y>0?p-w:-1,y<h-1?p+w:-1])if(n>=0&&!bgm[n]&&near(n)){bgm[n]=1;q[qt++]=n}}
-  const m=mk(w,h),mx=m.getContext('2d'),md=mx.createImageData(w,h);for(let i=0;i<N;i++){md.data[i*4]=md.data[i*4+1]=md.data[i*4+2]=255;md.data[i*4+3]=bgm[i]?0:255}mx.putImageData(md,0,0);
-  const out=mk(W,H),ox=out.getContext('2d');ox.filter=`blur(${Math.max(1,1.2/k)}px)`;ox.drawImage(m,0,0,W,H);return out;
-}
-async function doCut(mode){
-  try{
-    if(mode==='ia'){busy(true,'Détourage du produit…');E.mask=await grayToMask(await cutIA())}
-    else E.mask=cutUni(+$('#eTol').value);
-    if(!E.bg)E.bg='blanc';E.bgc=null;rebuild();renderSwatches();drawE();
-    $('#tolRow').hidden=mode!=='uni';
-  }catch(err){toast(err.message)}
-  busy(false);
-}
-$('#eCut').onclick=e=>{const b=e.target.closest('[data-cut]');if(b)doCut(b.dataset.cut)};
-let tolT=0;$('#eTol').oninput=e=>{$('#eTolv').textContent=e.target.value;clearTimeout(tolT);tolT=setTimeout(()=>doCut('uni'),150)};
-
-/* ----- pinceau Effacer / Restaurer ----- */
-$('#eBrush').onclick=e=>{const b=e.target.closest('[data-b]');if(!b)return;E.brush=b.dataset.b;
-  if(E.brush&&!E.mask){E.mask=mk(E.raw.width,E.raw.height);const x=E.mask.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,E.mask.width,E.mask.height)}
-  if(E.brush&&!E.bg){E.bg='blanc';E.bgc=null;rebuild();renderSwatches();drawE()}syncTools()};
-$('#eSize').oninput=e=>$('#eSizev').textContent=e.target.value;
-let painting=null;
-function paintAt(cx,cy){const st=$('#stage').getBoundingClientRect(),b=E.box,W=E.raw.width,H=E.raw.height;
-  const px=(cx-st.left-b.left)/b.w*W,py=(cy-st.top-b.top)/b.h*H,r=(+$('#eSize').value)/2/b.w*W;
-  const dot=$('#brushDot'),sz=+$('#eSize').value;Object.assign(dot.style,{display:'block',width:sz+'px',height:sz+'px',left:cx-st.left-sz/2+'px',top:cy-st.top-sz/2+'px'});
-  const x=E.mask.getContext('2d'),g=x.createRadialGradient(px,py,r*.55,px,py,r);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(1,'rgba(255,255,255,0)');
-  x.save();x.globalCompositeOperation=E.brush==='erase'?'destination-out':'source-over';x.fillStyle=g;
-  const steps=painting&&painting.x!=null?Math.ceil(Math.hypot(px-painting.x,py-painting.y)/(r*.3)):1;
-  for(let s=1;s<=steps;s++){const t=s/steps,qx=painting&&painting.x!=null?painting.x+(px-painting.x)*t:px,qy=painting&&painting.y!=null?painting.y+(py-painting.y)*t:py;
-    x.setTransform(1,0,0,1,qx-px,qy-py);x.fillRect(px-r,py-r,r*2,r*2)}
-  x.restore();painting={x:px,y:py};rebuild();redraw()}
-$('#stage').addEventListener('pointerdown',e=>{if(!E.brush||!E.mask)return;e.preventDefault();$('#stage').setPointerCapture(e.pointerId);painting={};paintAt(e.clientX,e.clientY)});
-$('#stage').addEventListener('pointermove',e=>{if(painting)paintAt(e.clientX,e.clientY)});
-['pointerup','pointercancel','pointerleave'].forEach(t=>$('#stage').addEventListener(t,()=>{painting=null;$('#brushDot').style.display='none'}));
-
-/* ----- choix et création du fond ----- */
-$('#eBg').onclick=e=>{const b=e.target.closest('[data-bg]');if(!b)return;const want=b.dataset.bg;
-  if(!want){E.bg='';rebuild();syncTools();drawE();return}
-  if(!E.mask){toast('Détourez d’abord le produit (Auto ou Fond uni)');return}
-  E.bg=want;rebuild();syncTools();drawE()};
-const COLORS={blanc:'#f7f6f3',noir:'#1d1d1f',gris:'#bcbab5',beige:'#e9dcc7',creme:'#f3ead8',rose:'#f2c9cc',bleu:'#bcd3ea',vert:'#c4d6bf',sauge:'#bccbb6',jaune:'#f3e2a6',terracotta:'#cf8c6c',marron:'#8b5e3c',dore:'#d9b86c',violet:'#cdbfe0',orange:'#f2b98a',rouge:'#d9878a'};
-function guessBg(t){t=t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  const type=/bois|parquet|table|planche/.test(t)?'bois':/marbre/.test(t)?'marbre':/lin|tissu|drap|toile|coton/.test(t)?'lin':/beton|ciment|pierre|mur/.test(t)?'beton':/papier|kraft/.test(t)?'papier':/degrade|pastel/.test(t)?'degrade':/studio/.test(t)?'studio':'uni';
-  const col=Object.keys(COLORS).find(c=>t.includes(c));const base=PRESETS[type]&&type!=='uni'&&type!=='degrade'?PRESETS[type]:null;
-  let c1=col?COLORS[col]:(base?base.c1:'#f2ece3');if(/clair|pale|leger/.test(t))c1=mixc(c1,'#ffffff',.35);if(/fonce|sombre/.test(t))c1=mixc(c1,'#000000',.35);
-  return{type,c1,c2:base&&!col?base.c2:mixc(c1,'#000',type==='bois'?.35:.18)}}
-async function createBg(){
-  const t=$('#eGenIn').value.trim();if(!t){toast('Décrivez le fond voulu');$('#eGenIn').focus();return}
-  if(!E.mask){toast('Détourez d’abord le produit (Auto ou Fond uni)');return}
-  let P=guessBg(t);
-  if(hasKey()){busy(true,'Création du fond…');try{const j=await claude({max_tokens:120,system:'Tu convertis la description d’un fond de photo produit en paramètres. Réponds uniquement en JSON : {"type":"uni|degrade|studio|bois|marbre|lin|beton|papier","c1":"#rrggbb","c2":"#rrggbb"}. c1 = couleur principale, c2 = couleur secondaire (veines, nuances, bas du dégradé). Choisis des teintes douces et réalistes.',messages:[{role:'user',content:t}]});
-    const r=jsonIn(textOf(j));if(r&&r.type&&/^#[0-9a-f]{6}$/i.test(r.c1||''))P={type:r.type,c1:r.c1,c2:/^#[0-9a-f]{6}$/i.test(r.c2||'')?r.c2:P.c2}}catch(e){}busy(false)}
-  E.bgP=P;E.bg='custom';E.bgc=null;rebuild();renderSwatches();drawE();
-}
-$('#eGen').onsubmit=e=>{e.preventDefault();createBg()};$('#eGenBtn').onclick=createBg;
-const imgPending={};
-window.__imgDone=(id,ok,body)=>{const p=imgPending[id];if(!p)return;delete imgPending[id];let j;try{j=JSON.parse(body)}catch(e){j={error:{message:body}}}ok?p.res(j):p.rej(new Error(j.error&&j.error.message||'Erreur'))};
-$('#ePhotoBtn').onclick=async()=>{
-  const t=$('#eGenIn').value.trim();if(!t){toast('Décrivez d’abord le décor voulu');$('#eGenIn').focus();return}
-  if(!E.mask){toast('Détourez d’abord le produit (Auto ou Fond uni)');return}
-  if(!A||!A.openaiImage){toast('La photo IA fonctionne dans l’application Android');return}
-  if(!A.hasOpenaiKey()){toast('Ajoutez votre clé OpenAI dans Réglages');return}
-  const W=E.raw.width,H=E.raw.height,size=W>H*1.15?'1536x1024':H>W*1.15?'1024x1536':'1024x1024';
-  const prompt=`Empty backdrop for e-commerce product photography: ${t}. Slightly top-down view, soft natural daylight, completely empty surface with clear free space in the center, no objects, no clothing, no people, no text, photorealistic, sharp focus.`;
-  busy(true,'Création de la photo de fond… (10 à 30 s)');
-  try{const j=await new Promise((res,rej)=>{const id='i'+Date.now();imgPending[id]={res,rej};A.openaiImage(JSON.stringify({model:ls.get('imgModel','gpt-image-2.5-flare'),prompt,size,quality:'medium',n:1}),id)});
-    const b64=j.data&&j.data[0]&&j.data[0].b64_json;if(!b64)throw new Error('Aucune image reçue');
-    E.bgImg=await loadImg('data:image/png;base64,'+b64);E.bg='photo';E.bgc=null;rebuild();renderSwatches();drawE();
-  }catch(err){toast(err.message)}busy(false);
+$('#searches').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.del!==undefined){cfg.searches.splice(+b.dataset.del,1);save();renderSearches();return}
+  editing=+b.dataset.edit;const s=cfg.searches[editing];
+  $('#q-name').value=s.name||'';$('#q-q').value=s.q;$('#q-max').value=s.maxPrice||'';$('#q-resale').value=s.resale||'';$('#q-parts').value=s.parts||'';
+  $('#formTitle').textContent='Modifier la recherche';$('#saveSearch').textContent='Enregistrer';$('#cancelRow').hidden=false;$('main').scrollTop=0};
+function resetForm(){editing=-1;['q-name','q-q','q-max','q-resale','q-parts'].forEach(id=>$('#'+id).value='');$('#formTitle').textContent='Nouvelle recherche';$('#saveSearch').textContent='Ajouter la recherche';$('#cancelRow').hidden=true}
+$('#cancelEdit').onclick=resetForm;
+$('#saveSearch').onclick=()=>{
+  const q=$('#q-q').value.trim();if(!q){toast('Indiquez des mots-clés');$('#q-q').focus();return}
+  const s={name:$('#q-name').value.trim()||q,q,maxPrice:num($('#q-max').value),resale:num($('#q-resale').value),parts:num($('#q-parts').value)};
+  if(editing>=0)cfg.searches[editing]=s;else cfg.searches.push(s);save();renderSearches();resetForm();toast('Recherche enregistrée');$('#hdr').textContent='Annonces « pour pièces »';
 };
 
-$('#eCancel').onclick=()=>{E.brush='';$('#editor').classList.remove('on')};
-$('#eApply').onclick=async()=>{
-  E.brush='';const W=E.base.width,H=E.base.height,c=E.crop,cw=Math.round(c.w*W),ch=Math.round(c.h*H),k=Math.min(1,2048/Math.max(cw,ch));
-  const cv=mk(Math.round(cw*k),Math.round(ch*k)),x=cv.getContext('2d');
-  x.filter=filt();x.drawImage(E.base,c.x*W,c.y*H,cw,ch,0,0,cv.width,cv.height);
-  const full=cv.toDataURL('image/jpeg',.9),blob=await (await fetch(full)).blob();
-  const p=photos[E.i];p.full=full;p.ai=await resize(blob,1024,.8);p.thumb=await resize(blob,320,.7);
-  p.ed={rot:E.rot,crop:E.crop,ratio:E.ratio,b:E.b,c:E.c,s:E.s,bg:E.bg,bgP:E.bgP};
-  p.mask=E.mask?E.mask.toDataURL('image/png'):null;p.bgPhoto=E.bgImg?E.bgImg.src:null;
-  $('#editor').classList.remove('on');renderPhotos();if(E.i===0&&currentId)saveHistory();toast('Photo modifiée');
-};
-addEventListener('resize',()=>{if($('#editor').classList.contains('on'))drawE()});
-
-/* ---------- appel à Claude ---------- */
-const pending={};
-window.__claudeDone=(id,ok,body)=>{const p=pending[id];if(!p)return;delete pending[id];let j;try{j=JSON.parse(body)}catch(e){j={error:{message:body}}}ok?p.res(j):p.rej(new Error(errMsg(j)))};
-function errMsg(j){const m=j&&j.error&&j.error.message||'Erreur inconnue';if(/x-api-key|authentication|invalid.*key/i.test(m))return 'Clé API invalide : vérifiez-la dans Réglages.';if(/credit|balance|billing/i.test(m))return 'Crédit API épuisé : ajoutez du crédit sur console.anthropic.com.';if(/overloaded/i.test(m))return 'Le service est surchargé, réessayez dans un instant.';return m}
-function hasKey(){return !!(pref.get('apiKey')||(A&&A.hasBuiltinKey&&A.hasBuiltinKey()))}
-function claude(body){
-  const builtin=!!(A&&A.hasBuiltinKey&&A.hasBuiltinKey()),key=pref.get('apiKey');if(!key&&!builtin)return Promise.reject(new Error('Ajoutez d’abord votre clé API Claude dans Réglages.'));
-  body.model=ls.get('model','claude-haiku-5-5');
-  if(A)return new Promise((res,rej)=>{const id='c'+Date.now()+Math.random();pending[id]={res,rej};A.callClaude(JSON.stringify(body),id)});
-  return fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)})
-    .then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(errMsg(j));return j});
+/* ---------- filtres et clés ---------- */
+function fillSettings(){
+  $('#f-ex').value=cfg.exclude.join('\n');$('#f-min').value=cfg.minProfit;$('#f-fees').value=cfg.fees;$('#f-fb').value=cfg.minFeedback;$('#f-eu').checked=cfg.euOnly;$('#f-market').value=cfg.market;$('#f-every').value=String(cfg.every||0);
+  $('#k-app').value=cfg.appId;$('#k-cert').value=cfg.certId;
 }
-const textOf=j=>(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
-function jsonIn(t){const m=t.match(/\{[\s\S]*\}/);if(!m)return null;try{return JSON.parse(m[0])}catch(e){return null}}
-function style(){const ton={simple:'simple et clair',vendeur:'vendeur et dynamique, sans exagérer',detaille:'détaillé et précis'}[ls.get('ton','simple')];const em={peu:'2 à 4 émojis discrets',non:'aucun émoji',oui:'des émojis variés'}[ls.get('emoji','peu')];const sg=ls.get('sign','');
-  return `Ton : ${ton}. Émojis : ${em}.${sg?` Termine la description par cette phrase exacte : « ${sg} ».`:''}`}
-const ETATS=['Neuf avec étiquette','Neuf sans étiquette','Très bon état','Bon état','Satisfaisant'];
-const SYS_GEN=`Tu rédiges des annonces Vinted en français pour un particulier, à partir de photos d'un article.
-Règles :
-- Décris uniquement ce qui est visible ou indiqué par le vendeur. N'invente jamais une marque, une taille ou une matière : si tu n'es pas sûr, laisse le champ vide et ajoute-le dans "a_verifier".
-- Signale honnêtement tout défaut visible (tache, usure, accroc) dans la description.
-- Titre : 60 caractères maximum, avec le type d'article, la marque si connue, la couleur et la taille si connues.
-- Description : 3 à 8 phrases courtes, aérées par des retours à la ligne, puis 3 à 6 mots-clés précédés de # sur la dernière ligne.
-- "etat" doit être exactement l'une de ces valeurs : ${ETATS.join(', ')}.
-- "categorie" : le chemin le plus probable dans le catalogue Vinted, ex. « Femmes > Vêtements > Robes > Robes mi-longues ».
-- "avis_prix" : une phrase sur le prix demandé (correct, élevé ou bas pour cet article d'occasion), sans affirmer de chiffres de marché précis.
-Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, avec les clés :
-{"titre":"","description":"","marque":"","taille":"","etat":"","couleur":"","matiere":"","categorie":"","avis_prix":"","a_verifier":[]}`;
+$('#f-ex').onchange=e=>{cfg.exclude=e.target.value.split('\n').map(s=>s.trim()).filter(Boolean);save()};
+[['f-min','minProfit'],['f-fees','fees'],['f-fb','minFeedback']].forEach(([id,k])=>$('#'+id).onchange=e=>{cfg[k]=num(e.target.value);save()});
+$('#f-eu').onchange=e=>{cfg.euOnly=e.target.checked;save()};
+$('#f-market').onchange=e=>{cfg.market=e.target.value;save()};
+$('#f-every').onchange=e=>{cfg.every=+e.target.value;save();if(A)A.ebaySchedule(cfg.every);toast(cfg.every?'Surveillance activée':'Surveillance désactivée')};
+$('#k-app').onchange=e=>{cfg.appId=e.target.value.trim();save()};
+$('#k-cert').onchange=e=>{cfg.certId=e.target.value.trim();save()};
+$('#k-test').onclick=async()=>{cfg.appId=$('#k-app').value.trim();cfg.certId=$('#k-cert').value.trim();
+  const saved=cfg.searches;if(!saved.length)cfg.searches=[{name:'test',q:'iphone',maxPrice:0,resale:0,parts:0}];save();$('#k-res').textContent='Test en cours…';
+  try{await ebay();$('#k-res').textContent='✓ Les clés fonctionnent.'}catch(e){$('#k-res').textContent='✗ '+e.message}
+  cfg.searches=saved;save()};
 
-/* ---------- génération ---------- */
-$('#gen').onclick=async()=>{
-  const price=$('#price').value.trim().replace(',','.');
-  if(!photos.length){toast('Ajoutez au moins une photo');return}
-  if(!price||isNaN(+price)){toast('Indiquez le prix');$('#price').focus();return}
-  const b=$('#gen');b.disabled=true;b.innerHTML='<span class="spin"></span>Rédaction de l’annonce…';$('#genHint').textContent='';
-  try{
-    const content=photos.slice(0,4).map(p=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:p.ai.split(',')[1]}}));
-    content.push({type:'text',text:`Prix demandé : ${price} €.\n${$('#hint').value.trim()?'Informations du vendeur : '+$('#hint').value.trim()+'\n':''}${style()}\nRédige l'annonce.`});
-    const j=await claude({max_tokens:1500,system:SYS_GEN,messages:[{role:'user',content}]});
-    const L=jsonIn(textOf(j));if(!L)throw new Error('Réponse illisible, réessayez.');
-    if(!ETATS.includes(L.etat))L.etat='Très bon état';
-    L.prix=price;listing=L;currentId='a'+Date.now();chat=[];
-    saveHistory();fillResult();
-    $('#result').hidden=false;setTimeout(()=>$('#result').scrollIntoView({behavior:'smooth'}),50);
-  }catch(e){$('#genHint').textContent=e.message;toast(e.message)}
-  b.disabled=false;b.textContent='Générer l’annonce';
-};
-function fillResult(){
-  document.querySelectorAll('#result [data-f]').forEach(el=>el.value=listing[el.dataset.f]??'');
-  const ap=$('#priceAdvice');ap.hidden=!listing.avis_prix;ap.textContent='💶 '+(listing.avis_prix||'');
-  const v=(listing.a_verifier||[]).filter(Boolean);$('#verify').hidden=!v.length;$('#verify').innerHTML='🔎 À vérifier avant de publier : '+v.map(esc).join(', ');
+/* ---------- scan ---------- */
+const pend={};
+window.__ebayDone=(id,ok,body)=>{const p=pend[id];if(!p)return;delete pend[id];let j;try{j=JSON.parse(body)}catch(e){j={error:body}}ok?p.res(j):p.rej(new Error(j.error||'Erreur'))};
+function ebay(){if(!A)return Promise.reject(new Error('Le scan eBay fonctionne dans l’application Android.'));
+  return new Promise((res,rej)=>{const id='e'+Date.now()+Math.random();pend[id]={res,rej};A.ebayScan(id)})}
+let last=ls.get('last',null),sort='profit';
+async function scan(){
+  if(!cfg.searches.length){toast('Ajoutez d’abord une recherche');show('search');return}
+  if(!cfg.appId||!cfg.certId){toast('Ajoutez vos clés eBay dans Réglages');show('set');return}
+  const b=$('#scan');b.disabled=true;b.innerHTML='<span class="spin"></span>Scan en cours…';
+  try{last=await ebay();ls.set('last',last);render();
+    const ids=last.items.filter(i=>i.isNew).map(i=>i.id);if(ids.length&&A)A.ebayMarkSeen(JSON.stringify(ids));
+  }catch(e){toast(e.message);$('#lastScan').textContent='Échec : '+e.message}
+  b.disabled=false;b.textContent='Scanner eBay';
 }
-document.querySelectorAll('#result [data-f]').forEach(el=>el.addEventListener('input',()=>{if(listing){listing[el.dataset.f]=el.value;saveHistory()}}));
+window.__scan=scan;
+$('#scan').onclick=scan;
+document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{sort=b.dataset.sort;document.querySelectorAll('[data-sort]').forEach(x=>x.setAttribute('aria-pressed',x===b));render()});
+function ago(t){const m=Math.round((Date.now()-t)/60000);return m<1?'à l’instant':m<60?`il y a ${m} min`:`il y a ${Math.round(m/60)} h`}
+function endsIn(iso){if(!iso)return'';const ms=new Date(iso)-Date.now();if(!(ms>0))return'';const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000);return h>=48?`${Math.floor(h/24)} j`:h?`${h} h ${m} min`:`${m} min`}
+function render(){
+  if(!last){$('#results').innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M8 10.5h5M10.5 8v5"/></svg><p><b>Aucun scan pour l’instant</b></p><p class="hint">Ajoutez vos recherches et vos clés eBay, puis touchez « Scanner eBay ».</p></div>`;$('#lastScan').textContent='';return}
+  const it=[...last.items];
+  if(sort==='profit')it.sort((a,b)=>(b.profit??-1e9)-(a.profit??-1e9));else if(sort==='price')it.sort((a,b)=>a.total-b.total);
+  const nNew=it.filter(i=>i.isNew).length;$('#newDot').hidden=!nNew;$('#newDot').textContent=nNew;
+  $('#lastScan').textContent=`${it.length} annonce${it.length>1?'s':''} · ${ago(last.at)}${nNew?` · ${nNew} nouvelle${nNew>1?'s':''}`:''}`;
+  const rej=Object.entries(last.rejected||{}),nrej=rej.reduce((s,[,n])=>s+n,0);
+  $('#results').innerHTML=(it.length?it.map((x,i)=>`<button class="it${i===0&&sort==='profit'&&x.profit>0?' top':''}" data-url="${esc(x.url)}"><img src="${esc(x.img)}" alt="" loading="lazy"><span><span class="t">${esc(x.title)}</span>
+    <span class="p"><span class="pr">${eur(x.price)}</span><span class="sh">${x.ship?'+ '+eur(x.ship)+' livr.':'livr. gratuite'}</span>${x.profit!=null?`<span class="g ${x.profit>=0?'up':'dn'}">${x.profit>=0?'+':''}${eur(x.profit)}</span>`:''}</span>
+    <span class="tags">${x.isNew?'<span class="tag new">Nouveau</span>':''}<span class="tag">${esc(x.search)}</span>${x.auction?`<span class="tag n">Enchère${endsIn(x.end)?' · fin '+endsIn(x.end):''}</span>`:'<span class="tag n">Achat immédiat</span>'}<span class="tag n">${esc(x.country||'?')} · ${x.feedback}%</span></span></span></button>`).join('')
+    :'<div class="empty"><p><b>Aucune annonce ne passe vos filtres</b></p><p class="hint">Augmentez le prix max, baissez le bénéfice minimum ou ajoutez des recherches.</p></div>')
+    +(nrej?`<div class="rej">${nrej} annonce${nrej>1?'s':''} écartée${nrej>1?'s':''} : ${rej.map(([r,n])=>esc(r)+' ×'+n).join(', ')}</div>`:'');
+}
+$('#results').onclick=e=>{const b=e.target.closest('[data-url]');if(!b)return;if(A)A.openUrl(b.dataset.url);else window.open(b.dataset.url)};
 
-/* ---------- copier / publier ---------- */
-const fullDesc=()=>listing?listing.description:'';
-$('#cpTitle').onclick=$('#stTitle').onclick=()=>copy(listing.titre,'Titre');
-$('#cpDesc').onclick=$('#stDesc').onclick=()=>copy(fullDesc(),'Description');
-$('#publish').onclick=()=>{
-  if(!listing)return;
-  const shots=JSON.stringify(photos.map(p=>p.full));
-  if(A){const r=A.publish(shots,fullDesc());
-    if(r==='none')toast('Vinted n’est pas installé : description copiée, photos dans la galerie');}
-  else{copy(fullDesc(),'Description');toast('Sur téléphone, Vinted s’ouvrirait maintenant')}
-  $('#steps').hidden=false;
-};
-$('#share').onclick=()=>{if(!listing)return;if(A)A.share(JSON.stringify(photos.map(p=>p.full)),listing.titre+'\n\n'+fullDesc());else copy(listing.titre+'\n\n'+fullDesc(),'Annonce')};
-$('#stDone').onclick=()=>{const h=history.find(x=>x.id===currentId);if(h){h.publiee=true;ls.set('history',history)}$('#steps').hidden=true;toast('Bravo, annonce marquée comme publiée');resetNew()};
-$('#stClose').onclick=()=>$('#steps').hidden=true;
-function resetNew(){photos=[];listing=null;currentId=null;chat=[];$('#price').value='';$('#hint').value='';$('#result').hidden=true;renderPhotos();renderChat()}
-
-/* ---------- historique ---------- */
-function saveHistory(){
-  if(!listing)return;const rec={id:currentId,date:Date.now(),listing,thumb:photos[0]&&photos[0].thumb,publiee:false};
-  const i=history.findIndex(x=>x.id===currentId);if(i>=0){rec.publiee=history[i].publiee;history[i]=rec}else history.unshift(rec);
-  history=history.slice(0,100);if(!ls.set('history',history)){history=history.slice(0,30);ls.set('history',history)}
-}
-function renderHist(){
-  $('#histList').innerHTML=history.length?history.map((h,i)=>`<button class="hist" data-h="${i}"><img src="${h.thumb||''}" alt=""><span class="t"><b>${esc(h.listing.titre)}</b><small>${esc(h.listing.prix)} € · ${new Date(h.date).toLocaleDateString('fr-FR')}</small></span><span class="badge ${h.publiee?'ok':''}">${h.publiee?'Publiée':'Brouillon'}</span></button>`).join(''):'<p class="hint">Aucune annonce pour l’instant. Elles apparaîtront ici après génération.</p>';
-}
-$('#histList').onclick=e=>{const b=e.target.closest('[data-h]');if(!b)return;const h=history[+b.dataset.h];
-  listing=h.listing;currentId=h.id;chat=[];photos=h.thumb?[{full:h.thumb,ai:h.thumb,thumb:h.thumb}]:[];
-  $('#price').value=listing.prix||'';renderPhotos();fillResult();$('#result').hidden=false;show('new');
-  if(h.thumb)toast('Photos d’origine non conservées : rajoutez-les avant de publier')};
-
-/* ---------- assistant ---------- */
-const QUICK=['Plus court','Plus vendeur','Ajoute les mesures à compléter','Corrige les fautes','Quel prix conseilles-tu ?','Comment bien emballer ?'];
-$('#quick').innerHTML=QUICK.map(q=>`<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
-$('#quick').onclick=e=>{const b=e.target.closest('[data-q]');if(b)send(b.dataset.q)};
-function renderChat(){
-  $('#msgs').innerHTML=chat.length?chat.map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${esc(m.shown??m.content)}${m.updated?'<span class="upd">✓ Annonce mise à jour</span>':''}</div>`).join(''):'<p class="hint">'+(listing?'Annonce en cours : « '+esc(listing.titre)+' ».':'Aucune annonce en cours : vous pouvez poser des questions générales sur la vente.')+'</p>';
-  $('main').scrollTop=1e6;
-}
-async function send(text){
-  text=text.trim();if(!text)return;chat.push({role:'user',content:text});renderChat();
-  const wait={role:'assistant',content:'…',shown:'…'};chat.push(wait);renderChat();
-  const sys=`Tu es l'assistant de vente de l'application SnapVinted. Tu aides un particulier à vendre sur Vinted. Réponds en français, brièvement et concrètement. ${style()}
-${listing?`Annonce en cours (JSON) : ${JSON.stringify({titre:listing.titre,description:listing.description,marque:listing.marque,taille:listing.taille,etat:listing.etat,couleur:listing.couleur,matiere:listing.matiere,categorie:listing.categorie,prix:listing.prix})}
-Si l'utilisateur demande une modification de l'annonce, explique-la en une phrase puis donne la version complète modifiée entre <annonce> et </annonce>, au même format JSON (états possibles : ${ETATS.join(', ')}). N'invente pas de caractéristiques.`:'Aucune annonce en cours.'}`;
-  try{
-    const msgs=chat.filter(m=>m!==wait).map(m=>({role:m.role,content:m.content}));
-    const j=await claude({max_tokens:1500,system:sys,messages:msgs});
-    let t=textOf(j);const m=t.match(/<annonce>([\s\S]*?)<\/annonce>/);
-    wait.content=t;
-    if(m&&listing){const L=jsonIn(m[1]);if(L){for(const k of Object.keys(L))if(L[k]!==undefined)listing[k]=L[k];if(!ETATS.includes(listing.etat))listing.etat='Très bon état';fillResult();saveHistory();wait.updated=true}}
-    wait.shown=t.replace(/<annonce>[\s\S]*?<\/annonce>/,'').trim()||'C’est fait.';
-  }catch(e){wait.content='Erreur : '+e.message;wait.shown=wait.content}
-  renderChat();
-}
-$('#chatForm').onsubmit=e=>{e.preventDefault();const v=$('#chatIn').value;$('#chatIn').value='';send(v)};
-$('#toChat').onclick=()=>{renderChat();show('chat')};
-
-/* ---------- réglages ---------- */
-$('#s-key').value=pref.get('apiKey')||'';
-$('#s-key').onchange=()=>{pref.set('apiKey',$('#s-key').value.trim());toast('Clé enregistrée')};
-[['s-model','model','claude-haiku-5-5'],['s-ton','ton','simple'],['s-emoji','emoji','peu'],['s-sign','sign','']].forEach(([id,k,d])=>{const el=$('#'+id);el.value=ls.get(k,d);el.onchange=()=>ls.set(k,el.value)});
-$('#s-test').onclick=async()=>{pref.set('apiKey',$('#s-key').value.trim());$('#s-testRes').textContent='Test en cours…';
-  try{await claude({max_tokens:20,messages:[{role:'user',content:'Réponds juste OK.'}]});$('#s-testRes').textContent='✓ La clé fonctionne.'}catch(e){$('#s-testRes').textContent='✗ '+e.message}};
-$('#ver').textContent=A&&A.version?'v'+A.version():'';
+/* ---------- mise à jour ---------- */
 $('#curVer').textContent=A&&A.version?'v'+A.version():'version web';
-/* clé OpenAI */
-$('#s-okey').value=pref.get('openaiKey')||'';
-$('#s-okey').onchange=()=>{pref.set('openaiKey',$('#s-okey').value.trim());toast('Clé OpenAI enregistrée')};
-if(A&&A.hasBuiltinOpenaiKey&&A.hasBuiltinOpenaiKey()){$('#okeyHint').textContent='✓ Une clé OpenAI est intégrée à l’application. Laissez vide pour l’utiliser.';$('#s-okey').placeholder='Clé intégrée utilisée'}
-$('#s-imgModel').value=ls.get('imgModel','gpt-image-2.5-flare');$('#s-imgModel').onchange=e=>ls.set('imgModel',e.target.value);
-/* mise à jour depuis GitHub */
 const updPending={};
 window.__updDone=(id,ok,body)=>{const p=updPending[id];if(!p)return;delete updPending[id];let j;try{j=JSON.parse(body)}catch(e){j={error:body}}ok?p.res(j):p.rej(new Error(j.error||'Erreur'))};
 const native=(fn,...args)=>new Promise((res,rej)=>{const id='u'+Date.now()+Math.random();updPending[id]={res,rej};A[fn](...args,id)});
@@ -645,22 +237,20 @@ $('#updBtn').onclick=async()=>{
   const b=$('#updBtn'),out=$('#updRes');
   if(!A||!A.checkUpdate){out.textContent='La mise à jour se fait depuis l’application Android.';return}
   if(b.dataset.url){b.disabled=true;b.innerHTML='<span class="spin"></span>Téléchargement…';out.textContent='';
-    try{const r=await native('installUpdate',b.dataset.url);out.textContent=r.status==='permission'?'Autorisez SnapVinted à installer des applications (l’écran vient de s’ouvrir), puis revenez et touchez à nouveau le bouton.':'Suivez l’écran d’installation d’Android. Vos réglages et annonces sont conservés.'}
+    try{const r=await native('installUpdate',b.dataset.url);out.textContent=r.status==='permission'?'Autorisez SpyEbay à installer des applications (l’écran vient de s’ouvrir), puis revenez et touchez à nouveau le bouton.':'Suivez l’écran d’installation d’Android. Vos recherches et réglages sont conservés.'}
     catch(e){out.textContent='Échec : '+e.message}
     b.disabled=false;b.textContent='Installer la version '+b.dataset.v;return}
   b.disabled=true;b.innerHTML='<span class="spin"></span>Recherche…';out.textContent='';
   try{const r=await native('checkUpdate');
-    if(r.mode==='browser'){out.textContent='La page des versions s’ouvre dans le navigateur : téléchargez SnapVinted.apk et installez-le par-dessus.';b.textContent='Rechercher une mise à jour'}
+    if(r.mode==='browser'){out.textContent='La page des versions s’ouvre dans le navigateur : téléchargez SpyEbay.apk et installez-le par-dessus.';b.textContent='Rechercher une mise à jour'}
     else if(r.update){b.dataset.url=r.url;b.dataset.v=r.latest;b.textContent='Installer la version '+r.latest;out.textContent='Nouvelle version disponible : '+r.latest+(r.notes?'\n'+r.notes.slice(0,300):'')}
     else{out.textContent='✓ Vous avez la dernière version ('+r.latest+').';b.textContent='Rechercher une mise à jour'}
   }catch(e){out.textContent='Échec : '+e.message;b.textContent='Rechercher une mise à jour'}
   b.disabled=false;
 };
-const hasBuiltin=!!(A&&A.hasBuiltinKey&&A.hasBuiltinKey());
-if(hasBuiltin){$('#keyHint').textContent='✓ Une clé est déjà intégrée à l’application. Laissez ce champ vide pour l’utiliser, ou collez une autre clé pour la remplacer.';$('#s-key').placeholder='Clé intégrée utilisée'}
-else if(!pref.get('apiKey'))$('#genHint').textContent='Pensez à ajouter votre clé API Claude dans Réglages.';
 
-renderPhotos();renderChat();
+fillSettings();renderSearches();render();
+if(!cfg.searches.length)$('#hdr').textContent='Commencez par une recherche';
 }
 </script>
 </body>

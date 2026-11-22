@@ -2,32 +2,21 @@ package fr.snapvinted.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.MediaStore
 import android.provider.Settings
-import android.util.Base64
 import android.webkit.JavascriptInterface
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
-import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
-import java.io.ByteArrayOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -36,23 +25,17 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * SnapVinted : l'interface est une page web embarquée (assets/index.html).
- * Cette activité fournit ce que la page ne peut pas faire seule :
- * appareil photo et galerie, appel à l'API Claude, presse-papiers,
- * enregistrement des photos dans la galerie et ouverture de Vinted.
+ * SpyEbay : l'interface est une page web embarquée (assets/index.html).
+ * Cette activité lui fournit la surveillance eBay (Ebay.kt), l'ouverture des annonces,
+ * les notifications et la mise à jour depuis GitHub.
  */
 class MainActivity : Activity() {
 
     private lateinit var web: WebView
-    private var fileCallback: ValueCallback<Array<Uri>>? = null
-    private var cameraUri: Uri? = null
     private val io = Executors.newCachedThreadPool()
     private val main = Handler(Looper.getMainLooper())
-    private val segmenter by lazy {
-        SubjectSegmentation.getClient(
-            SubjectSegmenterOptions.Builder().enableForegroundConfidenceMask().build()
-        )
-    }
+    private var pendingTab: String? = null
+    private var pageReady = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,8 +46,13 @@ class MainActivity : Activity() {
         web.settings.domStorageEnabled = true
         web.settings.allowFileAccess = true
         web.addJavascriptInterface(Bridge(), "Android")
-
+        pendingTab = intent?.getStringExtra("tab")
         web.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                pageReady = true
+                openPendingTab()
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 if (u.scheme == "http" || u.scheme == "https") {
@@ -74,67 +62,19 @@ class MainActivity : Activity() {
                 return false
             }
         }
-
-        web.webChromeClient = object : WebChromeClient() {
-            override fun onShowFileChooser(
-                view: WebView?,
-                callback: ValueCallback<Array<Uri>>?,
-                params: FileChooserParams?
-            ): Boolean {
-                fileCallback?.onReceiveValue(null)
-                fileCallback = callback
-                val intent: Intent
-                if (params?.isCaptureEnabled == true) {
-                    val f = File(cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg")
-                    f.parentFile?.mkdirs()
-                    val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", f)
-                    cameraUri = uri
-                    intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                        .putExtra(MediaStore.EXTRA_OUTPUT, uri)
-                        .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                } else {
-                    cameraUri = null
-                    intent = Intent(Intent.ACTION_GET_CONTENT)
-                        .setType("image/*")
-                        .addCategory(Intent.CATEGORY_OPENABLE)
-                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                }
-                return try {
-                    startActivityForResult(intent, REQ_FILE)
-                    true
-                } catch (e: Exception) {
-                    fileCallback = null
-                    toastNow("Impossible d'ouvrir l'appareil photo ou la galerie")
-                    false
-                }
-            }
-        }
-
         web.loadUrl("file:///android_asset/index.html")
     }
 
-    @Deprecated("API Activity classique")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQ_FILE) return
-        val cb = fileCallback ?: return
-        fileCallback = null
-        if (resultCode != RESULT_OK) {
-            cb.onReceiveValue(null)
-            return
-        }
-        val uris = ArrayList<Uri>()
-        val cam = cameraUri
-        if (cam != null) {
-            uris.add(cam)
-        } else {
-            val clip = data?.clipData
-            if (clip != null) {
-                for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
-            }
-            if (uris.isEmpty()) data?.data?.let { uris.add(it) }
-        }
-        cb.onReceiveValue(if (uris.isEmpty()) null else uris.toTypedArray())
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingTab = intent.getStringExtra("tab")
+        if (pageReady) openPendingTab()
+    }
+
+    private fun openPendingTab() {
+        val t = pendingTab ?: return
+        pendingTab = null
+        web.evaluateJavascript("window.openTab&&window.openTab(${JSONObject.quote(t)})", null)
     }
 
     @Deprecated("API Activity classique")
@@ -148,54 +88,11 @@ class MainActivity : Activity() {
 
     private fun js(code: String) = main.post { web.evaluateJavascript(code, null) }
 
-    private fun decodePhotos(json: String): List<ByteArray> {
-        val arr = JSONArray(json)
-        val out = ArrayList<ByteArray>()
-        for (i in 0 until arr.length()) {
-            val s = arr.getString(i)
-            out.add(Base64.decode(s.substringAfter(","), Base64.DEFAULT))
-        }
-        return out
-    }
-
-    /** Enregistre les photos dans la galerie (Images/SnapVinted) et renvoie leurs adresses. */
-    private fun saveToGallery(photos: List<ByteArray>): ArrayList<Uri> {
-        val uris = ArrayList<Uri>()
-        val stamp = System.currentTimeMillis()
-        photos.forEachIndexed { i, bytes ->
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "SnapVinted_${stamp}_${i + 1}.jpg")
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SnapVinted")
-            }
-            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-            if (uri != null) {
-                contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                uris.add(uri)
-            }
-        }
-        return uris
-    }
-
-    private fun copy(text: String) {
-        main.post {
-            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.setPrimaryClip(ClipData.newPlainText("Annonce", text))
-        }
-    }
-
-    /** Requête HTTP simple ; renvoie (code, corps). */
-    private fun http(url: String, method: String, headers: Map<String, String>, body: String?): Pair<Int, String> {
+    private fun http(url: String, headers: Map<String, String>): Pair<Int, String> {
         val c = URL(url).openConnection() as HttpURLConnection
-        c.requestMethod = method
         c.connectTimeout = 20000
-        c.readTimeout = 180000
-        c.instanceFollowRedirects = true
+        c.readTimeout = 60000
         headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
-        if (body != null) {
-            c.doOutput = true
-            c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-        }
         val code = c.responseCode
         val stream = if (code in 200..299) c.inputStream else (c.errorStream ?: c.inputStream)
         return code to stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
@@ -227,39 +124,62 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun hasBuiltinKey(): Boolean = BuildConfig.DEFAULT_KEY.isNotBlank()
-
-        @JavascriptInterface
         fun version(): String = versionName()
 
         @JavascriptInterface
-        fun hasBuiltinOpenaiKey(): Boolean = BuildConfig.OPENAI_KEY.isNotBlank()
+        fun toast(m: String) {
+            toastNow(m)
+        }
 
         @JavascriptInterface
-        fun hasOpenaiKey(): Boolean = getPref("openaiKey").isNotBlank() || BuildConfig.OPENAI_KEY.isNotBlank()
+        fun openUrl(url: String) {
+            if (url.startsWith("https://")) main.post { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
 
-        /** Génère une image de fond avec l'API OpenAI Images. */
+        /* ---------- Surveillance eBay ---------- */
         @JavascriptInterface
-        fun openaiImage(body: String, id: String) {
+        fun ebayGetConfig(): String = getPref("ebayConfig").ifBlank { "{}" }
+
+        @JavascriptInterface
+        fun ebaySaveConfig(json: String) {
+            val old = JSONObject(ebayGetConfig())
+            val neu = JSONObject(json)
+            if (old.optString("appId") != neu.optString("appId") || old.optString("certId") != neu.optString("certId")) {
+                prefs.edit().remove("ebayToken").apply()
+            }
+            setPref("ebayConfig", json)
+        }
+
+        @JavascriptInterface
+        fun ebayScan(id: String) {
             io.execute {
-                var ok = false
-                var out: String
-                try {
-                    val key = getPref("openaiKey").ifBlank { BuildConfig.OPENAI_KEY }
-                    val (code, txt) = http(
-                        "https://api.openai.com/v1/images/generations", "POST",
-                        mapOf("Content-Type" to "application/json", "Authorization" to "Bearer $key"), body
-                    )
-                    ok = code in 200..299
-                    out = txt
+                val (ok, out) = try {
+                    true to Ebay.scan(this@MainActivity).toString()
                 } catch (e: Exception) {
-                    out = JSONObject().put("error", JSONObject().put("message", "Connexion impossible : " + (e.message ?: e.toString()))).toString()
+                    false to JSONObject().put("error", e.message ?: e.toString()).toString()
                 }
-                js("window.__imgDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(out)})")
+                js("window.__ebayDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(out)})")
             }
         }
 
-        /** Cherche la dernière version publiée sur GitHub. */
+        @JavascriptInterface
+        fun ebayMarkSeen(idsJson: String) {
+            val a = JSONArray(idsJson)
+            Ebay.markSeen(this@MainActivity, (0 until a.length()).map { a.getString(it) })
+        }
+
+        /** Active (minutes > 0) ou coupe (0) la surveillance en arrière-plan. */
+        @JavascriptInterface
+        fun ebaySchedule(minutes: Int) {
+            if (minutes > 0 && Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                main.post { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7) }
+            }
+            Ebay.schedule(this@MainActivity, minutes)
+        }
+
+        /* ---------- Mise à jour depuis GitHub ---------- */
         @JavascriptInterface
         fun checkUpdate(id: String) {
             fun done(ok: Boolean, j: JSONObject) = js("window.__updDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(j.toString())})")
@@ -271,8 +191,8 @@ class MainActivity : Activity() {
             io.execute {
                 try {
                     val (code, txt) = http(
-                        "https://api.github.com/repos/${BuildConfig.GH_REPO}/releases/latest", "GET",
-                        mapOf("Accept" to "application/vnd.github+json", "Authorization" to "Bearer ${BuildConfig.GH_TOKEN}", "User-Agent" to "SnapVinted"), null
+                        "https://api.github.com/repos/${BuildConfig.GH_REPO}/releases/latest",
+                        mapOf("Accept" to "application/vnd.github+json", "Authorization" to "Bearer ${BuildConfig.GH_TOKEN}", "User-Agent" to "SpyEbay")
                     )
                     if (code !in 200..299) {
                         done(false, JSONObject().put("error", "GitHub a répondu $code"))
@@ -294,36 +214,31 @@ class MainActivity : Activity() {
             }
         }
 
-        /** Télécharge l'APK de la nouvelle version et lance l'installateur d'Android. */
         @JavascriptInterface
         fun installUpdate(assetUrl: String, id: String) {
             fun done(ok: Boolean, j: JSONObject) = js("window.__updDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(j.toString())})")
             if (!packageManager.canRequestPackageInstalls()) {
-                main.post {
-                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
-                }
+                main.post { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
                 done(true, JSONObject().put("status", "permission"))
                 return
             }
             io.execute {
                 try {
-                    val c = URL(assetUrl).openConnection() as HttpURLConnection
-                    c.setRequestProperty("Accept", "application/octet-stream")
-                    c.setRequestProperty("Authorization", "Bearer ${BuildConfig.GH_TOKEN}")
-                    c.setRequestProperty("User-Agent", "SnapVinted")
-                    c.instanceFollowRedirects = false
-                    var conn = c
+                    var conn = URL(assetUrl).openConnection() as HttpURLConnection
+                    conn.setRequestProperty("Accept", "application/octet-stream")
+                    conn.setRequestProperty("Authorization", "Bearer ${BuildConfig.GH_TOKEN}")
+                    conn.setRequestProperty("User-Agent", "SpyEbay")
+                    conn.instanceFollowRedirects = false
                     var code = conn.responseCode
-                    if (code in 300..399) { // GitHub redirige vers un lien de téléchargement signé, sans jeton
-                        val loc = conn.getHeaderField("Location")
-                        conn = URL(loc).openConnection() as HttpURLConnection
+                    if (code in 300..399) { // lien de téléchargement signé, sans jeton
+                        conn = URL(conn.getHeaderField("Location")).openConnection() as HttpURLConnection
                         code = conn.responseCode
                     }
                     if (code !in 200..299) {
                         done(false, JSONObject().put("error", "téléchargement refusé ($code)"))
                         return@execute
                     }
-                    val f = File(cacheDir, "update/SnapVinted.apk")
+                    val f = File(cacheDir, "update/SpyEbay.apk")
                     f.parentFile?.mkdirs()
                     conn.inputStream.use { input -> f.outputStream().use { input.copyTo(it) } }
                     val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", f)
@@ -337,147 +252,5 @@ class MainActivity : Activity() {
                 }
             }
         }
-
-        @JavascriptInterface
-        fun toast(m: String) {
-            toastNow(m)
-        }
-
-        @JavascriptInterface
-        fun copyText(t: String) {
-            copy(t)
-        }
-
-        /** Appelle l'API Claude hors de la page (pas de problème de CORS, la clé ne quitte pas le téléphone). */
-        @JavascriptInterface
-        fun callClaude(body: String, id: String) {
-            io.execute {
-                var ok = false
-                var out: String
-                try {
-                    val c = URL("https://api.anthropic.com/v1/messages").openConnection() as HttpURLConnection
-                    c.requestMethod = "POST"
-                    c.connectTimeout = 20000
-                    c.readTimeout = 120000
-                    c.doOutput = true
-                    c.setRequestProperty("content-type", "application/json")
-                    c.setRequestProperty("x-api-key", getPref("apiKey").ifBlank { BuildConfig.DEFAULT_KEY })
-                    c.setRequestProperty("anthropic-version", "2023-06-01")
-                    c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-                    val code = c.responseCode
-                    val stream = if (code in 200..299) c.inputStream else (c.errorStream ?: c.inputStream)
-                    out = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    ok = code in 200..299
-                } catch (e: Exception) {
-                    out = JSONObject().put("error", JSONObject().put("message", "Connexion impossible : " + (e.message ?: e.toString()))).toString()
-                }
-                js("window.__claudeDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(out)})")
-            }
-        }
-
-        /**
-         * Publication assistée : photos dans la galerie, description copiée, puis Vinted.
-         * Renvoie "shared" (photos passées à Vinted), "opened" (Vinted ouvert) ou "none" (pas de Vinted).
-         */
-        @JavascriptInterface
-        fun publish(photosJson: String, text: String): String {
-            val uris = try {
-                saveToGallery(decodePhotos(photosJson))
-            } catch (e: Exception) {
-                ArrayList()
-            }
-            copy(text)
-            val send = Intent(Intent.ACTION_SEND_MULTIPLE)
-                .setType("image/jpeg")
-                .setPackage(VINTED)
-                .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (uris.isNotEmpty() && send.resolveActivity(packageManager) != null) {
-                main.post { startActivity(send) }
-                return "shared"
-            }
-            val launch = packageManager.getLaunchIntentForPackage(VINTED)
-            if (launch != null) {
-                main.post { startActivity(launch) }
-                return "opened"
-            }
-            return "none"
-        }
-
-        /** Détoure le produit et renvoie une image PNG transparente (sans fond). */
-        @JavascriptInterface
-        fun removeBackground(dataUrl: String, id: String) {
-            fun done(ok: Boolean, v: String) = js("window.__bgDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(v)})")
-            io.execute {
-                try {
-                    val bytes = Base64.decode(dataUrl.substringAfter(","), Base64.DEFAULT)
-                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    if (bmp == null) {
-                        done(false, "Image illisible")
-                        return@execute
-                    }
-                    segmenter.process(InputImage.fromBitmap(bmp, 0))
-                        .addOnSuccessListener { r ->
-                            val conf = r.foregroundConfidenceMask
-                            if (conf == null) {
-                                done(false, "Aucun produit détecté sur la photo")
-                            } else {
-                                io.execute {
-                                    // Masque en niveaux de gris, bords adoucis : blanc = produit, noir = fond.
-                                    val w = bmp.width
-                                    val h = bmp.height
-                                    val px = IntArray(w * h)
-                                    conf.rewind()
-                                    for (i in 0 until w * h) {
-                                        val v = if (conf.hasRemaining()) conf.get() else 0f
-                                        val t = ((v - 0.25f) / 0.5f).coerceIn(0f, 1f)
-                                        val g = (t * t * (3 - 2 * t) * 255).toInt()
-                                        px[i] = (0xFF shl 24) or (g shl 16) or (g shl 8) or g
-                                    }
-                                    val mask = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
-                                    val out = ByteArrayOutputStream()
-                                    mask.compress(Bitmap.CompressFormat.PNG, 100, out)
-                                    done(true, "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
-                                }
-                            }
-                        }
-                        .addOnFailureListener { e ->
-                            val m = e.message ?: ""
-                            done(false, if (m.contains("download", true) || m.contains("module", true))
-                                "Le module de détourage se télécharge, réessayez dans une minute (connexion internet nécessaire la première fois)."
-                            else "Détourage impossible : $m")
-                        }
-                } catch (e: Exception) {
-                    done(false, "Détourage impossible : " + (e.message ?: e.toString()))
-                }
-            }
-        }
-
-        /** Partage générique (WhatsApp, e-mail, autre appli de vente…). */
-        @JavascriptInterface
-        fun share(photosJson: String, text: String) {
-            try {
-                val dir = File(cacheDir, "share").apply { deleteRecursively(); mkdirs() }
-                val uris = ArrayList<Uri>()
-                decodePhotos(photosJson).forEachIndexed { i, bytes ->
-                    val f = File(dir, "photo_${i + 1}.jpg")
-                    f.writeBytes(bytes)
-                    uris.add(FileProvider.getUriForFile(this@MainActivity, "$packageName.files", f))
-                }
-                val send = Intent(Intent.ACTION_SEND_MULTIPLE)
-                    .setType("image/jpeg")
-                    .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                    .putExtra(Intent.EXTRA_TEXT, text)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                main.post { startActivity(Intent.createChooser(send, "Partager l'annonce")) }
-            } catch (e: Exception) {
-                toastNow("Partage impossible")
-            }
-        }
-    }
-
-    companion object {
-        private const val REQ_FILE = 42
-        private const val VINTED = "fr.vinted"
     }
 }

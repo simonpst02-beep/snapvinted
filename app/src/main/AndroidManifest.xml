@@ -2,36 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Alerte quand une nouvelle annonce eBay passe vos filtres. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Installer les mises à jour téléchargées depuis GitHub (Android demande votre accord). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
-    <!-- Pour vérifier que Vinted est installé et lui passer les photos (Android 11+). -->
-    <queries>
-        <package android:name="fr.vinted" />
-        <intent>
-            <action android:name="android.media.action.IMAGE_CAPTURE" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.SEND_MULTIPLE" />
-            <data android:mimeType="image/*" />
-        </intent>
-    </queries>
 
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="SnapVinted"
+        android:label="SpyEbay"
         android:theme="@style/AppTheme">
-
-        <!-- Télécharge le module de détourage dès l'installation. -->
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="subject_segment" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
