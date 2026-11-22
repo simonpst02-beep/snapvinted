@@ -169,7 +169,7 @@ button{font:600 16px system-ui,sans-serif;border-radius:12px;border:1px solid va
       <h2>Intelligence artificielle</h2>
       <label for="s-key">Clé API Claude (Anthropic)</label>
       <input id="s-key" type="password" placeholder="sk-ant-…" autocomplete="off">
-      <p class="hint">Créez-la sur console.anthropic.com → API Keys. Elle reste uniquement sur ce téléphone.</p>
+      <p class="hint" id="keyHint">Créez-la sur console.anthropic.com → API Keys. Elle reste uniquement sur ce téléphone.</p>
       <label for="s-model">Modèle</label>
       <select id="s-model"><option value="claude-haiku-5-5">Rapide et économique (Haiku)</option><option value="claude-sonnet-5-5">Meilleure qualité (Sonnet)</option></select>
       <div class="row" style="margin-top:12px"><button id="s-test">Tester la clé</button></div>
@@ -340,7 +340,7 @@ const pending={};
 window.__claudeDone=(id,ok,body)=>{const p=pending[id];if(!p)return;delete pending[id];let j;try{j=JSON.parse(body)}catch(e){j={error:{message:body}}}ok?p.res(j):p.rej(new Error(errMsg(j)))};
 function errMsg(j){const m=j&&j.error&&j.error.message||'Erreur inconnue';if(/x-api-key|authentication|invalid.*key/i.test(m))return 'Clé API invalide : vérifiez-la dans Réglages.';if(/credit|balance|billing/i.test(m))return 'Crédit API épuisé : ajoutez du crédit sur console.anthropic.com.';if(/overloaded/i.test(m))return 'Le service est surchargé, réessayez dans un instant.';return m}
 function claude(body){
-  const key=pref.get('apiKey');if(!key)return Promise.reject(new Error('Ajoutez d’abord votre clé API Claude dans Réglages.'));
+  const builtin=!!(A&&A.hasBuiltinKey&&A.hasBuiltinKey()),key=pref.get('apiKey');if(!key&&!builtin)return Promise.reject(new Error('Ajoutez d’abord votre clé API Claude dans Réglages.'));
   body.model=ls.get('model','claude-haiku-5-5');
   if(A)return new Promise((res,rej)=>{const id='c'+Date.now()+Math.random();pending[id]={res,rej};A.callClaude(JSON.stringify(body),id)});
   return fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)})
@@ -453,7 +453,9 @@ $('#s-key').onchange=()=>{pref.set('apiKey',$('#s-key').value.trim());toast('Cl�
 $('#s-test').onclick=async()=>{pref.set('apiKey',$('#s-key').value.trim());$('#s-testRes').textContent='Test en cours…';
   try{await claude({max_tokens:20,messages:[{role:'user',content:'Réponds juste OK.'}]});$('#s-testRes').textContent='✓ La clé fonctionne.'}catch(e){$('#s-testRes').textContent='✗ '+e.message}};
 $('#ver').textContent=A&&A.version?'v'+A.version():'';
-if(!pref.get('apiKey'))$('#genHint').textContent='Pensez à ajouter votre clé API Claude dans Réglages.';
+const hasBuiltin=!!(A&&A.hasBuiltinKey&&A.hasBuiltinKey());
+if(hasBuiltin){$('#keyHint').textContent='✓ Une clé est déjà intégrée à l’application. Laissez ce champ vide pour l’utiliser, ou collez une autre clé pour la remplacer.';$('#s-key').placeholder='Clé intégrée utilisée'}
+else if(!pref.get('apiKey'))$('#genHint').textContent='Pensez à ajouter votre clé API Claude dans Réglages.';
 
 renderPhotos();renderChat();
 }

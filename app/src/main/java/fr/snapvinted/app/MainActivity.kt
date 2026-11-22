@@ -195,6 +195,9 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun hasBuiltinKey(): Boolean = BuildConfig.DEFAULT_KEY.isNotBlank()
+
+        @JavascriptInterface
         fun version(): String = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: ""
         } catch (e: Exception) {
@@ -224,7 +227,7 @@ class MainActivity : Activity() {
                     c.readTimeout = 120000
                     c.doOutput = true
                     c.setRequestProperty("content-type", "application/json")
-                    c.setRequestProperty("x-api-key", getPref("apiKey"))
+                    c.setRequestProperty("x-api-key", getPref("apiKey").ifBlank { BuildConfig.DEFAULT_KEY })
                     c.setRequestProperty("anthropic-version", "2023-06-01")
                     c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                     val code = c.responseCode

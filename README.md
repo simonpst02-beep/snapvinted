@@ -10,7 +10,9 @@ Application indépendante, non affiliée à Vinted.
 
 1. Sur le téléphone, ouvrez l'onglet **Releases** de ce dépôt et téléchargez `SnapVinted.apk`.
 2. Ouvrez le fichier. Android demande d'autoriser l'installation depuis le navigateur : acceptez.
-3. Dans l'appli, onglet **Réglages**, collez votre clé API Claude (créée sur console.anthropic.com → API Keys) et touchez **Tester la clé**.
+3. Si le secret `ANTHROPIC_API_KEY` est défini dans ce dépôt (Settings → Secrets and variables → Actions), la clé est déjà intégrée à l'APK. Sinon, dans l'appli, onglet **Réglages**, collez votre clé API Claude (créée sur console.anthropic.com → API Keys).
+
+⚠️ Avec une clé intégrée, ne partagez pas l'APK : quelqu'un pourrait l'extraire et l'utiliser à vos frais.
 
 ## Nouvelle version
 

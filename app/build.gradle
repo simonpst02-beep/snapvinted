@@ -17,7 +17,11 @@ android {
         targetSdk 34
         versionCode p[0] * 10000 + p[1] * 100 + p[2]
         versionName ver
+        // Clé API intégrée à la compilation depuis le secret GitHub ANTHROPIC_API_KEY (jamais écrite dans le code).
+        buildConfigField 'String', 'DEFAULT_KEY', '"' + (System.getenv('ANTHROPIC_API_KEY') ?: '').trim() + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     signingConfigs {
         release {
