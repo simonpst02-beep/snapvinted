@@ -1,6 +1,6 @@
 # SnapVinted
 
-Application Android : une photo + un prix, et l'IA (Claude) rédige l'annonce Vinted (titre, description, catégorie, état, mots-clés). Un assistant intégré permet de l'améliorer en discutant.
+Application Android : une photo + un prix (photos modifiables : recadrage, rotation, luminosité, contraste, couleurs, amélioration auto), et l'IA (Claude) rédige l'annonce Vinted (titre, description, catégorie, état, mots-clés). Un assistant intégré permet de l'améliorer en discutant.
 
 La publication est **assistée** : l'application enregistre les photos dans la galerie (album SnapVinted), copie la description, puis ouvre Vinted. Il ne reste qu'à ajouter les photos, coller le texte et valider. Rien n'est publié automatiquement, conformément aux conditions d'utilisation de Vinted, qui interdisent les robots.
 
