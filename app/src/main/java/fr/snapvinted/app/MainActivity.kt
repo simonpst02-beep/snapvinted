@@ -7,6 +7,8 @@ import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -21,6 +23,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
+import java.io.ByteArrayOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -41,6 +47,11 @@ class MainActivity : Activity() {
     private var cameraUri: Uri? = null
     private val io = Executors.newCachedThreadPool()
     private val main = Handler(Looper.getMainLooper())
+    private val segmenter by lazy {
+        SubjectSegmentation.getClient(
+            SubjectSegmenterOptions.Builder().enableForegroundBitmap().build()
+        )
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -254,6 +265,43 @@ class MainActivity : Activity() {
                 return "opened"
             }
             return "none"
+        }
+
+        /** Détoure le produit et renvoie une image PNG transparente (sans fond). */
+        @JavascriptInterface
+        fun removeBackground(dataUrl: String, id: String) {
+            fun done(ok: Boolean, v: String) = js("window.__bgDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(v)})")
+            io.execute {
+                try {
+                    val bytes = Base64.decode(dataUrl.substringAfter(","), Base64.DEFAULT)
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bmp == null) {
+                        done(false, "Image illisible")
+                        return@execute
+                    }
+                    segmenter.process(InputImage.fromBitmap(bmp, 0))
+                        .addOnSuccessListener { r ->
+                            val fg = r.foregroundBitmap
+                            if (fg == null) {
+                                done(false, "Aucun produit détecté sur la photo")
+                            } else {
+                                io.execute {
+                                    val out = ByteArrayOutputStream()
+                                    fg.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                    done(true, "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
+                                }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            val m = e.message ?: ""
+                            done(false, if (m.contains("download", true) || m.contains("module", true))
+                                "Le module de détourage se télécharge, réessayez dans une minute (connexion internet nécessaire la première fois)."
+                            else "Détourage impossible : $m")
+                        }
+                } catch (e: Exception) {
+                    done(false, "Détourage impossible : " + (e.message ?: e.toString()))
+                }
+            }
         }
 
         /** Partage générique (WhatsApp, e-mail, autre appli de vente…). */

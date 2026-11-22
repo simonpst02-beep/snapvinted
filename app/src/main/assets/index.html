@@ -90,6 +90,8 @@ button{font:600 16px system-ui,sans-serif;border-radius:12px;border:1px solid va
 .etools{background:#1a1816;padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
 .etools .row button{background:#2a2724;color:#f1ece4;border:0;min-height:44px;font-size:14px}
 .etools .row button[aria-pressed=true]{background:var(--acc);color:#fff}
+.etools #eBg{flex-wrap:nowrap;overflow-x:auto}.etools #eBg button{flex:none;padding:0 12px}
+.ebusy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#000a;font-weight:700;z-index:3}.ebusy.on{display:flex}
 .sl{display:grid;grid-template-columns:96px 1fr 40px;align-items:center;gap:8px;font-size:13px}
 .sl input{padding:0;accent-color:var(--acc);border:0;background:none}
 .sl span:last-child{text-align:right;color:#a59d92}
@@ -193,9 +195,10 @@ button{font:600 16px system-ui,sans-serif;border-radius:12px;border:1px solid va
 </nav>
 <div id="editor" role="dialog" aria-label="Modifier la photo">
   <div class="ehead"><button id="eCancel">Annuler</button><b>Modifier la photo</b><button class="ok" id="eApply">Appliquer</button></div>
-  <div id="stage"><canvas id="ecv"></canvas><div id="crop"><i class="h tl" data-h="tl"></i><i class="h tr" data-h="tr"></i><i class="h bl" data-h="bl"></i><i class="h br" data-h="br"></i></div></div>
+  <div id="stage"><div class="ebusy" id="eBusy"><span class="spin"></span>Détourage du produit…</div><canvas id="ecv"></canvas><div id="crop"><i class="h tl" data-h="tl"></i><i class="h tr" data-h="tr"></i><i class="h bl" data-h="bl"></i><i class="h br" data-h="br"></i></div></div>
   <div class="etools">
     <div class="row"><button id="eL" aria-label="Pivoter à gauche">↺</button><button id="eR" aria-label="Pivoter à droite">↻</button><button id="eAuto">✨ Auto</button><button id="eReset">Réinitialiser</button></div>
+    <div class="row" id="eBg"><button data-bg="" aria-pressed="true">Original</button><button data-bg="blanc">Blanc</button><button data-bg="gris">Gris</button><button data-bg="beige">Beige</button><button data-bg="studio">Studio</button></div>
     <div class="row" id="eRatio"><button data-r="0" aria-pressed="true">Libre</button><button data-r="1">1:1</button><button data-r="0.8">4:5</button><button data-r="0.75">3:4</button></div>
     <label class="sl"><span>Luminosité</span><input type="range" id="eB" min="50" max="150" value="100"><span id="eBv">0</span></label>
     <label class="sl"><span>Contraste</span><input type="range" id="eC" min="50" max="150" value="100"><span id="eCv">0</span></label>
@@ -250,19 +253,20 @@ $('#galIn').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
 $('#price').oninput=renderPhotos;
 
 /* ---------- éditeur de photo ---------- */
-const E={i:-1,img:null,base:null,rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100,box:null};
+const E={i:-1,img:null,raw:null,base:null,fg:null,bg:'',rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100,box:null};
 function loadImg(src){return new Promise(r=>{const im=new Image();im.onload=()=>r(im);im.src=src})}
 function rotBase(){const im=E.img,q=E.rot%4,c=document.createElement('canvas');c.width=q%2?im.height:im.width;c.height=q%2?im.width:im.height;
-  const x=c.getContext('2d');x.translate(c.width/2,c.height/2);x.rotate(q*Math.PI/2);x.drawImage(im,-im.width/2,-im.height/2);E.base=c}
+  const x=c.getContext('2d');x.translate(c.width/2,c.height/2);x.rotate(q*Math.PI/2);x.drawImage(im,-im.width/2,-im.height/2);E.raw=c;E.base=c;if(E.bg&&E.fg)compose()}
 const filt=()=>`brightness(${E.b/100}) contrast(${E.c/100}) saturate(${E.s/100})`;
 async function openEditor(i){
   const p=photos[i];if(!p)return;E.i=i;E.img=await loadImg(p.orig||p.full);
-  const d=p.ed||{rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100};
-  Object.assign(E,JSON.parse(JSON.stringify(d)));rotBase();syncTools();$('#editor').classList.add('on');requestAnimationFrame(drawE);
+  const d=p.ed||{rot:0,crop:{x:0,y:0,w:1,h:1},ratio:0,b:100,c:100,s:100,bg:''};
+  Object.assign(E,{bg:''},JSON.parse(JSON.stringify(d)));E.fg=p.fg?await loadImg(p.fg):null;if(!E.fg)E.bg='';rotBase();syncTools();$('#editor').classList.add('on');requestAnimationFrame(drawE);
 }
 function syncTools(){$('#eB').value=E.b;$('#eC').value=E.c;$('#eS').value=E.s;
   $('#eBv').textContent=E.b-100;$('#eCv').textContent=E.c-100;$('#eSv').textContent=E.s-100;
-  document.querySelectorAll('#eRatio button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.r===E.ratio))}
+  document.querySelectorAll('#eRatio button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.r===E.ratio));
+  document.querySelectorAll('#eBg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.bg===E.bg))}
 function drawE(){
   const st=$('#stage').getBoundingClientRect(),W=E.base.width,H=E.base.height,k=Math.min((st.width-24)/W,(st.height-24)/H),dw=W*k,dh=H*k,cv=$('#ecv'),dpr=devicePixelRatio||1;
   cv.width=Math.round(dw*dpr);cv.height=Math.round(dh*dpr);cv.style.width=dw+'px';cv.style.height=dh+'px';cv.style.left=(st.width-dw)/2+'px';cv.style.top=(st.height-dh)/2+'px';
@@ -283,16 +287,42 @@ $('#crop').addEventListener('pointermove',e=>{if(!drag)return;const b=E.box,dx=(
     if(E.ratio){const W=E.base.width,H=E.base.height;let hh=w*W/E.ratio/H;if(hh>1){hh=1;w=hh*H*E.ratio/W;if(L)x=nr-w}h=hh;if(T)y=nb-h;if(y<0){y=0;h=nb;w=h*H*E.ratio/W;if(L)x=nr-w}if(y+h>1){h=1-y;w=h*H*E.ratio/W;if(L)x=nr-w}}}
   E.crop={x,y,w,h};placeCrop()});
 $('#crop').addEventListener('pointerup',()=>drag=null);$('#crop').addEventListener('pointercancel',()=>drag=null);
-$('#eL').onclick=()=>{E.rot=(E.rot+3)%4;rotBase();setRatio(E.ratio);drawE()};
-$('#eR').onclick=()=>{E.rot=(E.rot+1)%4;rotBase();setRatio(E.ratio);drawE()};
+$('#eL').onclick=()=>{E.rot=(E.rot+3)%4;dropBg();rotBase();setRatio(E.ratio);drawE()};
+$('#eR').onclick=()=>{E.rot=(E.rot+1)%4;dropBg();rotBase();setRatio(E.ratio);drawE()};
 $('#eRatio').onclick=e=>{const b=e.target.closest('[data-r]');if(b)setRatio(+b.dataset.r)};
 [['eB','b'],['eC','c'],['eS','s']].forEach(([id,k])=>$('#'+id).oninput=e=>{E[k]=+e.target.value;syncTools();drawE()});
-$('#eReset').onclick=()=>{Object.assign(E,{rot:0,b:100,c:100,s:100});rotBase();setRatio(0);syncTools();drawE()};
+$('#eReset').onclick=()=>{Object.assign(E,{rot:0,b:100,c:100,s:100});dropBg();rotBase();setRatio(0);syncTools();drawE()};
 $('#eAuto').onclick=()=>{/* mesure la luminosité moyenne et le contraste, puis corrige */
   const c=document.createElement('canvas');c.width=64;c.height=64;const x=c.getContext('2d');x.drawImage(E.base,0,0,64,64);
   const d=x.getImageData(0,0,64,64).data;let sum=0,sq=0,n=d.length/4;for(let i=0;i<d.length;i+=4){const l=.299*d[i]+.587*d[i+1]+.114*d[i+2];sum+=l;sq+=l*l}
   const mean=sum/n,sd=Math.sqrt(sq/n-mean*mean);
   E.b=Math.round(Math.min(140,Math.max(85,100*(135/Math.max(mean,30))**.6)));E.c=Math.round(Math.min(135,Math.max(100,100*(60/Math.max(sd,20))**.35)));E.s=110;syncTools();drawE()};
+/* fond sobre : détourage (Android) puis composition sur un fond uni */
+const BGS={blanc:'#ffffff',gris:'#ececea',beige:'#f2ece3'};
+function dropBg(){if(E.bg){E.bg='';E.fg=null;toast('Fond retiré : refaites-le après la rotation')}}
+function compose(){
+  const W=E.raw.width,H=E.raw.height,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  if(E.bg==='studio'){const g=x.createRadialGradient(W/2,H*.42,0,W/2,H*.42,Math.max(W,H)*.75);g.addColorStop(0,'#ffffff');g.addColorStop(1,'#d9d6d1');x.fillStyle=g}else x.fillStyle=BGS[E.bg]||'#fff';
+  x.fillRect(0,0,W,H);
+  /* emprise du produit (pixels non transparents) pour placer l'ombre */
+  const s=document.createElement('canvas'),sw=160,sh=Math.max(1,Math.round(160*H/W));s.width=sw;s.height=sh;const sx=s.getContext('2d');sx.drawImage(E.fg,0,0,sw,sh);
+  const d=sx.getImageData(0,0,sw,sh).data;let x0=sw,x1=0,y0=sh,y1=0;
+  for(let y=0;y<sh;y++)for(let i=0;i<sw;i++)if(d[(y*sw+i)*4+3]>40){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y}
+  if(x1>x0){const k=W/sw,cx=(x0+x1)/2*k,by=y1*k,rx=(x1-x0)/2*k*.85,ry=Math.max(6,(y1-y0)*k*.035);
+    x.save();x.filter=`blur(${Math.round(ry*1.2)}px)`;x.fillStyle='rgba(0,0,0,.22)';x.beginPath();x.ellipse(cx,by-ry*.3,rx,ry,0,0,7);x.fill();x.restore()}
+  x.drawImage(E.fg,0,0,W,H);E.base=c;
+}
+const bgPending={};
+window.__bgDone=(id,ok,v)=>{const p=bgPending[id];if(!p)return;delete bgPending[id];ok?p.res(v):p.rej(new Error(v))};
+function cut(){
+  if(!A||!A.removeBackground)return Promise.reject(new Error('Le fond sobre fonctionne dans l’application Android.'));
+  const k=Math.min(1,1600/Math.max(E.raw.width,E.raw.height)),c=document.createElement('canvas');c.width=Math.round(E.raw.width*k);c.height=Math.round(E.raw.height*k);c.getContext('2d').drawImage(E.raw,0,0,c.width,c.height);
+  return new Promise((res,rej)=>{const id='b'+Date.now();bgPending[id]={res,rej};A.removeBackground(c.toDataURL('image/jpeg',.92),id)});
+}
+$('#eBg').onclick=async e=>{const b=e.target.closest('[data-bg]');if(!b)return;const want=b.dataset.bg;
+  if(!want){E.bg='';E.base=E.raw;syncTools();drawE();return}
+  if(!E.fg){$('#eBusy').classList.add('on');try{E.fg=await loadImg(await cut())}catch(err){$('#eBusy').classList.remove('on');toast(err.message);return}$('#eBusy').classList.remove('on')}
+  E.bg=want;compose();syncTools();drawE()};
 $('#eCancel').onclick=()=>$('#editor').classList.remove('on');
 $('#eApply').onclick=async()=>{
   const W=E.base.width,H=E.base.height,c=E.crop,cw=Math.round(c.w*W),ch=Math.round(c.h*H),k=Math.min(1,2048/Math.max(cw,ch));
@@ -300,7 +330,7 @@ $('#eApply').onclick=async()=>{
   x.filter=filt();x.drawImage(E.base,c.x*W,c.y*H,cw,ch,0,0,cv.width,cv.height);
   const full=cv.toDataURL('image/jpeg',.9),blob=await (await fetch(full)).blob();
   const p=photos[E.i];p.full=full;p.ai=await resize(blob,1024,.8);p.thumb=await resize(blob,320,.7);
-  p.ed={rot:E.rot,crop:E.crop,ratio:E.ratio,b:E.b,c:E.c,s:E.s};
+  p.ed={rot:E.rot,crop:E.crop,ratio:E.ratio,b:E.b,c:E.c,s:E.s,bg:E.bg};p.fg=E.fg?E.fg.src:null;
   $('#editor').classList.remove('on');renderPhotos();if(E.i===0&&currentId)saveHistory();toast('Photo modifiée');
 };
 addEventListener('resize',()=>{if($('#editor').classList.contains('on'))drawE()});

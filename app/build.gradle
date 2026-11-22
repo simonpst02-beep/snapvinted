@@ -49,4 +49,6 @@ android {
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
+    // Détourage du produit sur le téléphone (gratuit, hors ligne)
+    implementation 'com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1'
 }
