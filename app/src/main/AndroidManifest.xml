@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Installer les mises à jour téléchargées depuis GitHub (Android demande votre accord). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Pour vérifier que Vinted est installé et lui passer les photos (Android 11+). -->
     <queries>

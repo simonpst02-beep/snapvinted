@@ -14,6 +14,14 @@ Application indépendante, non affiliée à Vinted.
 
 ⚠️ Avec une clé intégrée, ne partagez pas l'APK : quelqu'un pourrait l'extraire et l'utiliser à vos frais.
 
+## Fonds et détourage
+
+Dans l'éditeur (onglet **Fond**) : détourage **Auto** (IA de Google, sur le téléphone) ou **Fond uni** (pour un article posé sur un fond d'une seule couleur), pinceau **Effacer / Restaurer** pour corriger, puis un fond : 12 fonds prêts (blanc, studio, bois, marbre, lin, béton…), un fond **créé à partir d'une description** (« table en bois clair »), ou une **Photo IA** réaliste générée par OpenAI (clé OpenAI dans Réglages ou secret `OPENAI_API_KEY`). Le produit reste toujours la vraie photo : seul le fond change.
+
+## Mise à jour depuis l'appli
+
+Réglages → **Rechercher une mise à jour**. Comme le dépôt est privé, l'appli a besoin d'un jeton GitHub en lecture seule, ajouté comme secret `GH_UPDATE_TOKEN`. Sans lui, le bouton ouvre la page des versions dans le navigateur.
+
 ## Nouvelle version
 
 Changez le numéro dans le fichier `VERSION` (par exemple `v1.1.0`) et envoyez : GitHub compile l'APK et le publie dans les Releases. Installez-le par-dessus l'ancien, vos annonces et réglages sont conservés.

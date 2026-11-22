@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -49,7 +50,7 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private val segmenter by lazy {
         SubjectSegmentation.getClient(
-            SubjectSegmenterOptions.Builder().enableForegroundBitmap().build()
+            SubjectSegmenterOptions.Builder().enableForegroundConfidenceMask().build()
         )
     }
 
@@ -183,6 +184,37 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Requête HTTP simple ; renvoie (code, corps). */
+    private fun http(url: String, method: String, headers: Map<String, String>, body: String?): Pair<Int, String> {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.requestMethod = method
+        c.connectTimeout = 20000
+        c.readTimeout = 180000
+        c.instanceFollowRedirects = true
+        headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+        if (body != null) {
+            c.doOutput = true
+            c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        }
+        val code = c.responseCode
+        val stream = if (code in 200..299) c.inputStream else (c.errorStream ?: c.inputStream)
+        return code to stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+    }
+
+    private fun versionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+    } catch (e: Exception) {
+        ""
+    }
+
+    private fun newer(a: String, b: String): Boolean {
+        fun p(v: String) = v.trimStart('v').split('.').map { it.filter(Char::isDigit).toIntOrNull() ?: 0 } + listOf(0, 0, 0)
+        val x = p(a)
+        val y = p(b)
+        for (i in 0..2) if (x[i] != y[i]) return x[i] > y[i]
+        return false
+    }
+
     inner class Bridge {
         private val prefs get() = getSharedPreferences("snapvinted", Context.MODE_PRIVATE)
 
@@ -198,10 +230,112 @@ class MainActivity : Activity() {
         fun hasBuiltinKey(): Boolean = BuildConfig.DEFAULT_KEY.isNotBlank()
 
         @JavascriptInterface
-        fun version(): String = try {
-            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
-        } catch (e: Exception) {
-            ""
+        fun version(): String = versionName()
+
+        @JavascriptInterface
+        fun hasBuiltinOpenaiKey(): Boolean = BuildConfig.OPENAI_KEY.isNotBlank()
+
+        @JavascriptInterface
+        fun hasOpenaiKey(): Boolean = getPref("openaiKey").isNotBlank() || BuildConfig.OPENAI_KEY.isNotBlank()
+
+        /** Génère une image de fond avec l'API OpenAI Images. */
+        @JavascriptInterface
+        fun openaiImage(body: String, id: String) {
+            io.execute {
+                var ok = false
+                var out: String
+                try {
+                    val key = getPref("openaiKey").ifBlank { BuildConfig.OPENAI_KEY }
+                    val (code, txt) = http(
+                        "https://api.openai.com/v1/images/generations", "POST",
+                        mapOf("Content-Type" to "application/json", "Authorization" to "Bearer $key"), body
+                    )
+                    ok = code in 200..299
+                    out = txt
+                } catch (e: Exception) {
+                    out = JSONObject().put("error", JSONObject().put("message", "Connexion impossible : " + (e.message ?: e.toString()))).toString()
+                }
+                js("window.__imgDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(out)})")
+            }
+        }
+
+        /** Cherche la dernière version publiée sur GitHub. */
+        @JavascriptInterface
+        fun checkUpdate(id: String) {
+            fun done(ok: Boolean, j: JSONObject) = js("window.__updDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(j.toString())})")
+            if (BuildConfig.GH_TOKEN.isBlank()) {
+                main.post { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/${BuildConfig.GH_REPO}/releases/latest"))) }
+                done(true, JSONObject().put("mode", "browser"))
+                return
+            }
+            io.execute {
+                try {
+                    val (code, txt) = http(
+                        "https://api.github.com/repos/${BuildConfig.GH_REPO}/releases/latest", "GET",
+                        mapOf("Accept" to "application/vnd.github+json", "Authorization" to "Bearer ${BuildConfig.GH_TOKEN}", "User-Agent" to "SnapVinted"), null
+                    )
+                    if (code !in 200..299) {
+                        done(false, JSONObject().put("error", "GitHub a répondu $code"))
+                        return@execute
+                    }
+                    val rel = JSONObject(txt)
+                    val tag = rel.optString("tag_name")
+                    var url = ""
+                    val assets = rel.optJSONArray("assets") ?: JSONArray()
+                    for (i in 0 until assets.length()) {
+                        val a = assets.getJSONObject(i)
+                        if (a.optString("name").endsWith(".apk")) url = a.optString("url")
+                    }
+                    done(true, JSONObject().put("mode", "app").put("latest", tag).put("url", url)
+                        .put("notes", rel.optString("body")).put("update", url.isNotEmpty() && newer(tag, versionName())))
+                } catch (e: Exception) {
+                    done(false, JSONObject().put("error", "Connexion impossible : " + (e.message ?: e.toString())))
+                }
+            }
+        }
+
+        /** Télécharge l'APK de la nouvelle version et lance l'installateur d'Android. */
+        @JavascriptInterface
+        fun installUpdate(assetUrl: String, id: String) {
+            fun done(ok: Boolean, j: JSONObject) = js("window.__updDone(${JSONObject.quote(id)},$ok,${JSONObject.quote(j.toString())})")
+            if (!packageManager.canRequestPackageInstalls()) {
+                main.post {
+                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                }
+                done(true, JSONObject().put("status", "permission"))
+                return
+            }
+            io.execute {
+                try {
+                    val c = URL(assetUrl).openConnection() as HttpURLConnection
+                    c.setRequestProperty("Accept", "application/octet-stream")
+                    c.setRequestProperty("Authorization", "Bearer ${BuildConfig.GH_TOKEN}")
+                    c.setRequestProperty("User-Agent", "SnapVinted")
+                    c.instanceFollowRedirects = false
+                    var conn = c
+                    var code = conn.responseCode
+                    if (code in 300..399) { // GitHub redirige vers un lien de téléchargement signé, sans jeton
+                        val loc = conn.getHeaderField("Location")
+                        conn = URL(loc).openConnection() as HttpURLConnection
+                        code = conn.responseCode
+                    }
+                    if (code !in 200..299) {
+                        done(false, JSONObject().put("error", "téléchargement refusé ($code)"))
+                        return@execute
+                    }
+                    val f = File(cacheDir, "update/SnapVinted.apk")
+                    f.parentFile?.mkdirs()
+                    conn.inputStream.use { input -> f.outputStream().use { input.copyTo(it) } }
+                    val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", f)
+                    val intent = Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(uri, "application/vnd.android.package-archive")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    main.post { startActivity(intent) }
+                    done(true, JSONObject().put("status", "installing"))
+                } catch (e: Exception) {
+                    done(false, JSONObject().put("error", e.message ?: e.toString()))
+                }
+            }
         }
 
         @JavascriptInterface
@@ -284,13 +418,25 @@ class MainActivity : Activity() {
                     }
                     segmenter.process(InputImage.fromBitmap(bmp, 0))
                         .addOnSuccessListener { r ->
-                            val fg = r.foregroundBitmap
-                            if (fg == null) {
+                            val conf = r.foregroundConfidenceMask
+                            if (conf == null) {
                                 done(false, "Aucun produit détecté sur la photo")
                             } else {
                                 io.execute {
+                                    // Masque en niveaux de gris, bords adoucis : blanc = produit, noir = fond.
+                                    val w = bmp.width
+                                    val h = bmp.height
+                                    val px = IntArray(w * h)
+                                    conf.rewind()
+                                    for (i in 0 until w * h) {
+                                        val v = if (conf.hasRemaining()) conf.get() else 0f
+                                        val t = ((v - 0.25f) / 0.5f).coerceIn(0f, 1f)
+                                        val g = (t * t * (3 - 2 * t) * 255).toInt()
+                                        px[i] = (0xFF shl 24) or (g shl 16) or (g shl 8) or g
+                                    }
+                                    val mask = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
                                     val out = ByteArrayOutputStream()
-                                    fg.compress(Bitmap.CompressFormat.PNG, 100, out)
+                                    mask.compress(Bitmap.CompressFormat.PNG, 100, out)
                                     done(true, "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
                                 }
                             }

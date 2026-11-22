@@ -25,6 +25,8 @@ jobs:
       - name: Compiler
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: gradle assembleRelease --no-daemon --stacktrace
       - name: Préparer le fichier
         id: v
