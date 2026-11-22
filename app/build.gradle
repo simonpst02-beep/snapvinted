@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// Le numéro de version vient du fichier VERSION (ex. v1.2.3).
+def ver = rootProject.file('VERSION').text.trim().replaceFirst('^v', '')
+def p = ver.tokenize('.').collect { it.replaceAll('[^0-9]', '').toInteger() }
+
+android {
+    namespace 'fr.snapvinted.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'fr.snapvinted.app'
+        minSdk 29
+        targetSdk 34
+        versionCode p[0] * 10000 + p[1] * 100 + p[2]
+        versionName ver
+    }
+
+    signingConfigs {
+        release {
+            storeFile rootProject.file('signing/snapvinted.jks')
+            storePassword System.getenv('SIGN_PASS') ?: 'snapvinted'
+            keyAlias 'snapvinted'
+            keyPassword System.getenv('SIGN_PASS') ?: 'snapvinted'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+}

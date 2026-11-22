@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SnapVinted</title>
+<style>
+/* VOICE: petit outil de vendeur, direct, chaleureux, rapide au pouce
+   IDEA: l'étiquette de prix accrochée au vêtement : photo, prix, et l'annonce s'écrit dessous
+   PICTURE: la photo de l'article en grand avec son étiquette de prix
+   COLOUR and TYPE: crème clair #f7f4ee, encre #1d1b18, corail #ff5a3c pour l'action ; police système
+   LAYOUT: une colonne, barre d'onglets en bas (Annonce, Assistant, Historique, Réglages) */
+:root{color-scheme:light dark;--bg:light-dark(#f7f4ee,#141312);--card:light-dark(#ffffff,#1f1d1b);--ink:light-dark(#1d1b18,#f1ece4);--mute:light-dark(#6f685f,#a59d92);--line:light-dark(#e6e0d6,#33302c);--acc:#ff5a3c;--acc2:light-dark(#fff0ec,#3a201a);--ok:#1f8a5b}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+header{padding:calc(env(safe-area-inset-top) + 12px) 16px 8px;display:flex;align-items:center;gap:10px}
+header h1{margin:0;font-size:22px;letter-spacing:-.3px}header h1 b{color:var(--acc)}
+header .sp{margin-left:auto;font-size:13px;color:var(--mute)}
+main{flex:1;overflow:auto;padding:4px 14px 20px}
+.view{display:none}.view.on{display:block}
+nav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--card);padding-bottom:env(safe-area-inset-bottom)}
+nav button{border:0;background:none;color:var(--mute);font:600 12px system-ui,sans-serif;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
+h2{font-size:18px;margin:4px 0 10px}
+label{display:block;font-size:13px;font-weight:600;color:var(--mute);margin:12px 0 4px}
+input,textarea,select{font:16px system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%}
+textarea{min-height:150px;resize:vertical}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button{font:600 16px system-ui,sans-serif;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:48px;padding:0 16px;cursor:pointer}
+.big{width:100%;background:var(--acc);color:#fff;border:0;min-height:54px;font-size:17px}
+.big:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+.photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ph{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--bg)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .x{position:absolute;top:4px;right:4px;min-height:30px;width:30px;padding:0;border-radius:99px;background:#000a;color:#fff;border:0;font-size:15px}
+.ph .main{position:absolute;left:4px;bottom:4px;background:var(--acc);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px}
+.add{aspect-ratio:1;border:2px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mute);font-size:13px;font-weight:600;position:relative;cursor:pointer}
+.add svg{width:28px;height:28px}
+.add input{position:absolute;inset:0;opacity:0}
+.hero{position:relative;border-radius:16px;overflow:hidden;background:var(--acc2);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;margin-top:6px}
+.hero img{width:100%;height:100%;object-fit:cover}
+.hero .tag{position:absolute;right:14px;top:14px;background:var(--card);color:var(--ink);border-radius:10px 4px 4px 10px;padding:8px 14px 8px 22px;font-weight:800;font-size:22px;box-shadow:0 6px 18px #0003}
+.hero .tag::before{content:"";position:absolute;left:8px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:99px;background:var(--bg)}
+.hero .empty{text-align:center;color:var(--mute);padding:20px}
+.hero .empty svg{width:64px;height:64px;color:var(--acc)}
+.price{display:flex;align-items:center;gap:8px}.price input{font-size:24px;font-weight:800;text-align:right}.price span{font-size:24px;font-weight:800}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{min-height:36px;padding:0 12px;border-radius:99px;font-size:14px;background:var(--acc2);border-color:transparent}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+.hint{font-size:13px;color:var(--mute);margin:6px 0 0}
+.warn{background:var(--acc2);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:10px}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid #fff6;border-top-color:#fff;border-radius:99px;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes sp{to{transform:rotate(1turn)}}
+.steps{position:sticky;bottom:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:12px;box-shadow:0 -6px 20px #0002}
+.steps p{margin:0 0 8px;font-size:14px}
+/* assistant */
+#msgs{display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
+.msg{max-width:86%;padding:10px 12px;border-radius:16px;white-space:pre-wrap;font-size:15px}
+.msg.u{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:4px}
+.msg.a{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.a .upd{display:block;margin-top:6px;font-size:13px;color:var(--ok);font-weight:700}
+.composer{display:flex;gap:8px;position:sticky;bottom:0;background:var(--bg);padding:8px 0}
+.composer input{flex:1}
+.composer button{background:var(--acc);color:#fff;border:0}
+/* historique */
+.hist{display:flex;gap:10px;align-items:center;padding:8px;border-radius:12px;background:var(--card);border:1px solid var(--line);margin:8px 0;width:100%;text-align:left;font-weight:500}
+.hist img{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;background:var(--bg)}
+.hist .t{flex:1;overflow:hidden}.hist .t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hist .t small{color:var(--mute)}
+.badge{font-size:12px;font-weight:700;border-radius:6px;padding:2px 6px;background:var(--acc2);color:var(--acc)}.badge.ok{background:#1f8a5b22;color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;z-index:9;display:none;max-width:90%}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<header><h1>Snap<b>Vinted</b></h1><span class="sp" id="hdr">Photo + prix = annonce</span></header>
+<main>
+  <!-- ================= ANNONCE ================= -->
+  <section class="view on" id="v-new">
+    <div class="hero" id="hero">
+      <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><div>Ajoutez une ou plusieurs photos de l'article</div></div>
+    </div>
+    <div class="card">
+      <div class="photos" id="photos"></div>
+      <div class="row" style="margin-top:10px">
+        <label class="add" style="aspect-ratio:auto;min-height:52px;flex-direction:row;margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Appareil photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
+        <label class="add" style="aspect-ratio:auto;min-height:52px;flex-direction:row;margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Galerie<input type="file" accept="image/*" multiple id="galIn"></label>
+      </div>
+      <label for="price">Prix de vente</label>
+      <div class="price"><input id="price" inputmode="decimal" placeholder="15" autocomplete="off"><span>€</span></div>
+      <label for="hint">Infos utiles (facultatif)</label>
+      <input id="hint" placeholder="ex. marque Zara, taille M, petite tache sur la manche" autocomplete="off">
+      <div style="margin-top:14px"><button class="big" id="gen">Générer l'annonce</button></div>
+      <p class="hint" id="genHint"></p>
+    </div>
+
+    <div id="result" hidden>
+      <div class="card">
+        <h2>Votre annonce</h2>
+        <label for="f-titre">Titre</label><input id="f-titre" data-f="titre" maxlength="100">
+        <label for="f-desc">Description</label><textarea id="f-desc" data-f="description"></textarea>
+        <div class="kv">
+          <div><label for="f-marque">Marque</label><input id="f-marque" data-f="marque"></div>
+          <div><label for="f-taille">Taille</label><input id="f-taille" data-f="taille"></div>
+          <div><label for="f-etat">État</label><select id="f-etat" data-f="etat"><option>Neuf avec étiquette</option><option>Neuf sans étiquette</option><option>Très bon état</option><option>Bon état</option><option>Satisfaisant</option></select></div>
+          <div><label for="f-couleur">Couleur</label><input id="f-couleur" data-f="couleur"></div>
+          <div><label for="f-matiere">Matière</label><input id="f-matiere" data-f="matiere"></div>
+          <div><label for="f-prix">Prix (€)</label><input id="f-prix" data-f="prix" inputmode="decimal"></div>
+        </div>
+        <label for="f-cat">Catégorie Vinted</label><input id="f-cat" data-f="categorie">
+        <div id="priceAdvice" class="warn" hidden></div>
+        <div id="verify" class="warn" hidden></div>
+        <div class="row" style="margin-top:12px"><button id="cpTitle">Copier le titre</button><button id="cpDesc">Copier la description</button></div>
+        <div class="row" style="margin-top:8px"><button id="toChat">Améliorer avec l'assistant</button><button id="share">Partager…</button></div>
+      </div>
+      <button class="big" id="publish">Publier sur Vinted</button>
+      <p class="hint">Les photos sont enregistrées dans votre galerie (album SnapVinted), la description est copiée, puis Vinted s'ouvre : il ne reste qu'à coller et valider.</p>
+      <div class="steps" id="steps" hidden>
+        <p><b>Dans Vinted :</b> ajoutez les photos de l'album SnapVinted, puis collez le titre et la description.</p>
+        <div class="row"><button id="stTitle">Copier le titre</button><button id="stDesc">Copier la description</button></div>
+        <div class="row" style="margin-top:8px"><button id="stDone">C'est publié ✓</button><button id="stClose">Fermer</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ASSISTANT ================= -->
+  <section class="view" id="v-chat">
+    <div class="card" style="margin-bottom:6px"><b>Assistant de vente</b><p class="hint" style="margin-top:4px">Demandez-lui de modifier l'annonce en cours, ou posez une question sur la vente (prix, envoi, négociation…).</p>
+      <div class="chips" id="quick"></div></div>
+    <div id="msgs"></div>
+    <form class="composer" id="chatForm"><input id="chatIn" placeholder="ex. rends la description plus courte" autocomplete="off" aria-label="Message"><button aria-label="Envoyer">➤</button></form>
+  </section>
+
+  <!-- ================= HISTORIQUE ================= -->
+  <section class="view" id="v-hist">
+    <h2 style="margin-top:8px">Mes annonces</h2>
+    <div id="histList"></div>
+  </section>
+
+  <!-- ================= RÉGLAGES ================= -->
+  <section class="view" id="v-set">
+    <div class="card">
+      <h2>Intelligence artificielle</h2>
+      <label for="s-key">Clé API Claude (Anthropic)</label>
+      <input id="s-key" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <p class="hint">Créez-la sur console.anthropic.com → API Keys. Elle reste uniquement sur ce téléphone.</p>
+      <label for="s-model">Modèle</label>
+      <select id="s-model"><option value="claude-haiku-5-5">Rapide et économique (Haiku)</option><option value="claude-sonnet-5-5">Meilleure qualité (Sonnet)</option></select>
+      <div class="row" style="margin-top:12px"><button id="s-test">Tester la clé</button></div>
+      <p class="hint" id="s-testRes"></p>
+    </div>
+    <div class="card">
+      <h2>Style des annonces</h2>
+      <label for="s-ton">Ton</label>
+      <select id="s-ton"><option value="simple">Simple et clair</option><option value="vendeur">Vendeur et dynamique</option><option value="detaille">Détaillé et précis</option></select>
+      <label for="s-emoji">Émojis</label>
+      <select id="s-emoji"><option value="peu">Quelques-uns</option><option value="non">Aucun</option><option value="oui">Beaucoup</option></select>
+      <label for="s-sign">Phrase ajoutée à la fin de chaque description</label>
+      <input id="s-sign" placeholder="ex. Envoi rapide et soigné 📦 N'hésitez pas à faire une offre !">
+    </div>
+    <p class="hint" style="text-align:center">SnapVinted <span id="ver"></span> · application indépendante, non affiliée à Vinted.</p>
+  </section>
+</main>
+<nav>
+  <button class="on" data-v="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12 12 20 4 12V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>Annonce</button>
+  <button data-v="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Assistant</button>
+  <button data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Historique</button>
+  <button data-v="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Réglages</button>
+</nav>
+<div class="toast" id="toast"></div>
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const A=window.Android||null;
+const ls={get(k,d){try{const v=localStorage.getItem('sv-'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sv-'+k,JSON.stringify(v));return true}catch(e){return false}}};
+const pref={get:k=>A?A.getPref(k):ls.get('p-'+k,''),set:(k,v)=>A?A.setPref(k,v):ls.set('p-'+k,v)};
+function toast(m){if(A){A.toast(m);return}const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200)}
+function copy(t,label){if(A)A.copyText(t);else{try{navigator.clipboard.writeText(t)}catch(e){}}toast((label||'Texte')+' copié')}
+
+/* ---------- état ---------- */
+let photos=[];      // {full, ai, thumb}
+let listing=null;   // annonce en cours
+let currentId=null; // id dans l'historique
+let chat=[];        // {role, content}
+let history=ls.get('history',[]);
+
+/* ---------- navigation ---------- */
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('main').scrollTop=0;if(v==='hist')renderHist();if(v==='chat')setTimeout(()=>$('main').scrollTop=1e6,30)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+window.onBack=()=>{const on=document.querySelector('.view.on').id;if(on!=='v-new'){show('new');return true}return false};
+
+/* ---------- photos ---------- */
+function resize(file,max,q){return new Promise(res=>{const u=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',q))};
+  im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
+async function addFiles(files){
+  for(const f of files){if(photos.length>=20)break;const full=await resize(f,2048,.9);if(!full)continue;
+    photos.push({full,ai:await resize(f,1024,.8),thumb:await resize(f,320,.7)})}
+  renderPhotos();
+}
+function renderPhotos(){
+  $('#photos').innerHTML=photos.map((p,i)=>`<div class="ph"><img src="${p.thumb}" alt="Photo ${i+1}">${i?'':'<span class="main">Principale</span>'}<button class="x" data-rm="${i}" aria-label="Retirer la photo">✕</button></div>`).join('');
+  $('#photos').style.display=photos.length?'grid':'none';
+  const pr=$('#price').value.trim();
+  $('#hero').innerHTML=photos.length?`<img src="${photos[0].full}" alt="Photo principale">${pr?`<span class="tag">${esc(pr)} €</span>`:''}`:$('#hero').dataset.empty;
+}
+$('#hero').dataset.empty=$('#hero').innerHTML;
+$('#photos').onclick=e=>{const b=e.target.closest('[data-rm]');if(b){photos.splice(+b.dataset.rm,1);renderPhotos()}};
+$('#camIn').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+$('#galIn').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+$('#price').oninput=renderPhotos;
+
+/* ---------- appel à Claude ---------- */
+const pending={};
+window.__claudeDone=(id,ok,body)=>{const p=pending[id];if(!p)return;delete pending[id];let j;try{j=JSON.parse(body)}catch(e){j={error:{message:body}}}ok?p.res(j):p.rej(new Error(errMsg(j)))};
+function errMsg(j){const m=j&&j.error&&j.error.message||'Erreur inconnue';if(/x-api-key|authentication|invalid.*key/i.test(m))return 'Clé API invalide : vérifiez-la dans Réglages.';if(/credit|balance|billing/i.test(m))return 'Crédit API épuisé : ajoutez du crédit sur console.anthropic.com.';if(/overloaded/i.test(m))return 'Le service est surchargé, réessayez dans un instant.';return m}
+function claude(body){
+  const key=pref.get('apiKey');if(!key)return Promise.reject(new Error('Ajoutez d’abord votre clé API Claude dans Réglages.'));
+  body.model=ls.get('model','claude-haiku-5-5');
+  if(A)return new Promise((res,rej)=>{const id='c'+Date.now()+Math.random();pending[id]={res,rej};A.callClaude(JSON.stringify(body),id)});
+  return fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)})
+    .then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(errMsg(j));return j});
+}
+const textOf=j=>(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
+function jsonIn(t){const m=t.match(/\{[\s\S]*\}/);if(!m)return null;try{return JSON.parse(m[0])}catch(e){return null}}
+function style(){const ton={simple:'simple et clair',vendeur:'vendeur et dynamique, sans exagérer',detaille:'détaillé et précis'}[ls.get('ton','simple')];const em={peu:'2 à 4 émojis discrets',non:'aucun émoji',oui:'des émojis variés'}[ls.get('emoji','peu')];const sg=ls.get('sign','');
+  return `Ton : ${ton}. Émojis : ${em}.${sg?` Termine la description par cette phrase exacte : « ${sg} ».`:''}`}
+const ETATS=['Neuf avec étiquette','Neuf sans étiquette','Très bon état','Bon état','Satisfaisant'];
+const SYS_GEN=`Tu rédiges des annonces Vinted en français pour un particulier, à partir de photos d'un article.
+Règles :
+- Décris uniquement ce qui est visible ou indiqué par le vendeur. N'invente jamais une marque, une taille ou une matière : si tu n'es pas sûr, laisse le champ vide et ajoute-le dans "a_verifier".
+- Signale honnêtement tout défaut visible (tache, usure, accroc) dans la description.
+- Titre : 60 caractères maximum, avec le type d'article, la marque si connue, la couleur et la taille si connues.
+- Description : 3 à 8 phrases courtes, aérées par des retours à la ligne, puis 3 à 6 mots-clés précédés de # sur la dernière ligne.
+- "etat" doit être exactement l'une de ces valeurs : ${ETATS.join(', ')}.
+- "categorie" : le chemin le plus probable dans le catalogue Vinted, ex. « Femmes > Vêtements > Robes > Robes mi-longues ».
+- "avis_prix" : une phrase sur le prix demandé (correct, élevé ou bas pour cet article d'occasion), sans affirmer de chiffres de marché précis.
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, avec les clés :
+{"titre":"","description":"","marque":"","taille":"","etat":"","couleur":"","matiere":"","categorie":"","avis_prix":"","a_verifier":[]}`;
+
+/* ---------- génération ---------- */
+$('#gen').onclick=async()=>{
+  const price=$('#price').value.trim().replace(',','.');
+  if(!photos.length){toast('Ajoutez au moins une photo');return}
+  if(!price||isNaN(+price)){toast('Indiquez le prix');$('#price').focus();return}
+  const b=$('#gen');b.disabled=true;b.innerHTML='<span class="spin"></span>Rédaction de l’annonce…';$('#genHint').textContent='';
+  try{
+    const content=photos.slice(0,4).map(p=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:p.ai.split(',')[1]}}));
+    content.push({type:'text',text:`Prix demandé : ${price} €.\n${$('#hint').value.trim()?'Informations du vendeur : '+$('#hint').value.trim()+'\n':''}${style()}\nRédige l'annonce.`});
+    const j=await claude({max_tokens:1500,system:SYS_GEN,messages:[{role:'user',content}]});
+    const L=jsonIn(textOf(j));if(!L)throw new Error('Réponse illisible, réessayez.');
+    if(!ETATS.includes(L.etat))L.etat='Très bon état';
+    L.prix=price;listing=L;currentId='a'+Date.now();chat=[];
+    saveHistory();fillResult();
+    $('#result').hidden=false;setTimeout(()=>$('#result').scrollIntoView({behavior:'smooth'}),50);
+  }catch(e){$('#genHint').textContent=e.message;toast(e.message)}
+  b.disabled=false;b.textContent='Générer l’annonce';
+};
+function fillResult(){
+  document.querySelectorAll('#result [data-f]').forEach(el=>el.value=listing[el.dataset.f]??'');
+  const ap=$('#priceAdvice');ap.hidden=!listing.avis_prix;ap.textContent='💶 '+(listing.avis_prix||'');
+  const v=(listing.a_verifier||[]).filter(Boolean);$('#verify').hidden=!v.length;$('#verify').innerHTML='🔎 À vérifier avant de publier : '+v.map(esc).join(', ');
+}
+document.querySelectorAll('#result [data-f]').forEach(el=>el.addEventListener('input',()=>{if(listing){listing[el.dataset.f]=el.value;saveHistory()}}));
+
+/* ---------- copier / publier ---------- */
+const fullDesc=()=>listing?listing.description:'';
+$('#cpTitle').onclick=$('#stTitle').onclick=()=>copy(listing.titre,'Titre');
+$('#cpDesc').onclick=$('#stDesc').onclick=()=>copy(fullDesc(),'Description');
+$('#publish').onclick=()=>{
+  if(!listing)return;
+  const shots=JSON.stringify(photos.map(p=>p.full));
+  if(A){const r=A.publish(shots,fullDesc());
+    if(r==='none')toast('Vinted n’est pas installé : description copiée, photos dans la galerie');}
+  else{copy(fullDesc(),'Description');toast('Sur téléphone, Vinted s’ouvrirait maintenant')}
+  $('#steps').hidden=false;
+};
+$('#share').onclick=()=>{if(!listing)return;if(A)A.share(JSON.stringify(photos.map(p=>p.full)),listing.titre+'\n\n'+fullDesc());else copy(listing.titre+'\n\n'+fullDesc(),'Annonce')};
+$('#stDone').onclick=()=>{const h=history.find(x=>x.id===currentId);if(h){h.publiee=true;ls.set('history',history)}$('#steps').hidden=true;toast('Bravo, annonce marquée comme publiée');resetNew()};
+$('#stClose').onclick=()=>$('#steps').hidden=true;
+function resetNew(){photos=[];listing=null;currentId=null;chat=[];$('#price').value='';$('#hint').value='';$('#result').hidden=true;renderPhotos();renderChat()}
+
+/* ---------- historique ---------- */
+function saveHistory(){
+  if(!listing)return;const rec={id:currentId,date:Date.now(),listing,thumb:photos[0]&&photos[0].thumb,publiee:false};
+  const i=history.findIndex(x=>x.id===currentId);if(i>=0){rec.publiee=history[i].publiee;history[i]=rec}else history.unshift(rec);
+  history=history.slice(0,100);if(!ls.set('history',history)){history=history.slice(0,30);ls.set('history',history)}
+}
+function renderHist(){
+  $('#histList').innerHTML=history.length?history.map((h,i)=>`<button class="hist" data-h="${i}"><img src="${h.thumb||''}" alt=""><span class="t"><b>${esc(h.listing.titre)}</b><small>${esc(h.listing.prix)} € · ${new Date(h.date).toLocaleDateString('fr-FR')}</small></span><span class="badge ${h.publiee?'ok':''}">${h.publiee?'Publiée':'Brouillon'}</span></button>`).join(''):'<p class="hint">Aucune annonce pour l’instant. Elles apparaîtront ici après génération.</p>';
+}
+$('#histList').onclick=e=>{const b=e.target.closest('[data-h]');if(!b)return;const h=history[+b.dataset.h];
+  listing=h.listing;currentId=h.id;chat=[];photos=h.thumb?[{full:h.thumb,ai:h.thumb,thumb:h.thumb}]:[];
+  $('#price').value=listing.prix||'';renderPhotos();fillResult();$('#result').hidden=false;show('new');
+  if(h.thumb)toast('Photos d’origine non conservées : rajoutez-les avant de publier')};
+
+/* ---------- assistant ---------- */
+const QUICK=['Plus court','Plus vendeur','Ajoute les mesures à compléter','Corrige les fautes','Quel prix conseilles-tu ?','Comment bien emballer ?'];
+$('#quick').innerHTML=QUICK.map(q=>`<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+$('#quick').onclick=e=>{const b=e.target.closest('[data-q]');if(b)send(b.dataset.q)};
+function renderChat(){
+  $('#msgs').innerHTML=chat.length?chat.map(m=>`<div class="msg ${m.role==='user'?'u':'a'}">${esc(m.shown??m.content)}${m.updated?'<span class="upd">✓ Annonce mise à jour</span>':''}</div>`).join(''):'<p class="hint">'+(listing?'Annonce en cours : « '+esc(listing.titre)+' ».':'Aucune annonce en cours : vous pouvez poser des questions générales sur la vente.')+'</p>';
+  $('main').scrollTop=1e6;
+}
+async function send(text){
+  text=text.trim();if(!text)return;chat.push({role:'user',content:text});renderChat();
+  const wait={role:'assistant',content:'…',shown:'…'};chat.push(wait);renderChat();
+  const sys=`Tu es l'assistant de vente de l'application SnapVinted. Tu aides un particulier à vendre sur Vinted. Réponds en français, brièvement et concrètement. ${style()}
+${listing?`Annonce en cours (JSON) : ${JSON.stringify({titre:listing.titre,description:listing.description,marque:listing.marque,taille:listing.taille,etat:listing.etat,couleur:listing.couleur,matiere:listing.matiere,categorie:listing.categorie,prix:listing.prix})}
+Si l'utilisateur demande une modification de l'annonce, explique-la en une phrase puis donne la version complète modifiée entre <annonce> et </annonce>, au même format JSON (états possibles : ${ETATS.join(', ')}). N'invente pas de caractéristiques.`:'Aucune annonce en cours.'}`;
+  try{
+    const msgs=chat.filter(m=>m!==wait).map(m=>({role:m.role,content:m.content}));
+    const j=await claude({max_tokens:1500,system:sys,messages:msgs});
+    let t=textOf(j);const m=t.match(/<annonce>([\s\S]*?)<\/annonce>/);
+    wait.content=t;
+    if(m&&listing){const L=jsonIn(m[1]);if(L){for(const k of Object.keys(L))if(L[k]!==undefined)listing[k]=L[k];if(!ETATS.includes(listing.etat))listing.etat='Très bon état';fillResult();saveHistory();wait.updated=true}}
+    wait.shown=t.replace(/<annonce>[\s\S]*?<\/annonce>/,'').trim()||'C’est fait.';
+  }catch(e){wait.content='Erreur : '+e.message;wait.shown=wait.content}
+  renderChat();
+}
+$('#chatForm').onsubmit=e=>{e.preventDefault();const v=$('#chatIn').value;$('#chatIn').value='';send(v)};
+$('#toChat').onclick=()=>{renderChat();show('chat')};
+
+/* ---------- réglages ---------- */
+$('#s-key').value=pref.get('apiKey')||'';
+$('#s-key').onchange=()=>{pref.set('apiKey',$('#s-key').value.trim());toast('Clé enregistrée')};
+[['s-model','model','claude-haiku-5-5'],['s-ton','ton','simple'],['s-emoji','emoji','peu'],['s-sign','sign','']].forEach(([id,k,d])=>{const el=$('#'+id);el.value=ls.get(k,d);el.onchange=()=>ls.set(k,el.value)});
+$('#s-test').onclick=async()=>{pref.set('apiKey',$('#s-key').value.trim());$('#s-testRes').textContent='Test en cours…';
+  try{await claude({max_tokens:20,messages:[{role:'user',content:'Réponds juste OK.'}]});$('#s-testRes').textContent='✓ La clé fonctionne.'}catch(e){$('#s-testRes').textContent='✗ '+e.message}};
+$('#ver').textContent=A&&A.version?'v'+A.version():'';
+if(!pref.get('apiKey'))$('#genHint').textContent='Pensez à ajouter votre clé API Claude dans Réglages.';
+
+renderPhotos();renderChat();
+}
+</script>
+</body>
+</html>
