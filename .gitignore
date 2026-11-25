@@ -1,0 +1,30 @@
+build/
+app/build/
+.gradle/
+local.properties
+*.apk
+.env
+
+# Android signing key - never commit
+app/margeo.keystore
+*.jks
+*.keystore
+
+# Secrets locaux SpyEbay
+.env.database
+.env
+.env.*
+!.env.example
+
+# Signature Android
+*.keystore
+*.jks
+key.properties
+local.properties
+
+# APK / builds
+*.apk
+*.aab
+/build/
+/app/build/
+.gradle/

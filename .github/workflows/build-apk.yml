@@ -1,0 +1,74 @@
+name: Construire l'APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  tests:
+    name: Tester l'interface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Installer le navigateur de test
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Lancer les tests
+        run: python tests/test_ui.py
+
+  build:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Clé de signature : uniquement depuis les secrets GitHub (jamais dans le dépôt)
+      - name: Préparer la clé de signature
+        env:
+          KEYSTORE_B64: ${{ secrets.MARGEO_KEYSTORE }}
+        run: |
+          test -n "$KEYSTORE_B64" || (echo "Secret MARGEO_KEYSTORE manquant" && exit 1)
+          echo "$KEYSTORE_B64" | base64 -d > app/margeo.keystore
+          test -f app/margeo.keystore
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compiler l'APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MARGEO_KEYSTORE_PASSWORD }}
+        run: gradle assembleDebug --no-daemon
+
+      - name: Renommer l'APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk SpyEbay.apk
+
+      - name: Garder l'APK dans les artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpyEbay-apk
+          path: SpyEbay.apk
+
+      - name: Publier l'APK dans une release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: SpyEbay – version ${{ github.run_number }}
+          files: SpyEbay.apk
+          body: ${{ github.event.head_commit.message }}
