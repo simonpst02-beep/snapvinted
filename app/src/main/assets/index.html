@@ -519,6 +519,7 @@
       <button class="it" id="pCache"><span class="ic">🧹</span><span class="tx">Vider le cache des prix<small id="cacheS">Les prix de revente sont gardés 24 h</small></span><span class="chev">›</span></button>
       <button class="it" id="pGuide"><span class="ic">🧭</span><span class="tx">Revoir le guide de démarrage</span><span class="chev">›</span></button>
       <button class="it" id="pRestore"><span class="ic">♻️</span><span class="tx">Restaurer une sauvegarde<small>Fichier .json créé avec « 💾 Sauvegarder » dans Suivi</small></span><span class="chev">›</span></button>
+<button class="it" id="pServer"><span class="ic">☁️</span><span class="tx">Envoyer au serveur<small>Copie le suivi, les alertes et le stock vers ton M710</small></span><span class="chev">›</span></button>
       <button class="it" id="pRecent"><span class="ic">🕘</span><span class="tx">Effacer les recherches récentes</span><span class="chev">›</span></button>
       <a class="it" id="pRepo" href="#"><span class="ic">💻</span><span class="tx">Code source<small>Dépôt GitHub de l'appli</small></span><span class="chev">›</span></a>
     </div>
@@ -1332,6 +1333,34 @@ const sauvegarde=()=>{const o={app:"spyebay",version:1,date:Date.now()};
   profils().forEach(p=>{if(p.id!=="moi")o["suivi_"+p.id]=lireSuivi(p.id);});o.price_hist=store.json("price_hist",{});
   ["d_rep","d_fr","d_fx","d_target","learn","al_on","ai_photos","u_auto","ebay_mk","c_taux","c_vl","th_theme","th_accent","th_size","u_dl"].forEach(k=>{const v=store.get(k,null);if(v!=null)o[k]=v;});return o;};
 $("tSave").onclick=()=>enregistrer(`spyebay-sauvegarde-${jour()}.json`,"application/json",JSON.stringify(sauvegarde(),null,1));
+
+const SPY_SERVER="http://100.81.68.109:8103";
+
+$("pServer").onclick=async()=>{
+  const b=$("pServer");
+  b.disabled=true;
+
+  try{
+    toast("☁️ Envoi vers le serveur…");
+
+    const r=await http(
+      "POST",
+      SPY_SERVER+"/api/import/backup?replace=1",
+      {"Content-Type":"application/json"},
+      JSON.stringify(sauvegarde())
+    );
+
+    store.set("server_last_sync",String(Date.now()));
+
+    toast(`✅ Serveur : ${r.tracked} suivi · ${r.alerts} alertes · ${r.stock} pièces`);
+
+  }catch(e){
+    toast("❌ Serveur : "+e.message);
+  }finally{
+    b.disabled=false;
+  }
+};
+
 $("restoreIn").onchange=async e=>{
   const f=e.target.files[0];e.target.value="";if(!f)return;
   try{const o=JSON.parse(await f.text());if(o.app!=="margeo"&&o.app!=="spyebay")throw new Error("ce n'est pas une sauvegarde SpyEbay");

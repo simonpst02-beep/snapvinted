@@ -28,3 +28,7 @@ local.properties
 /build/
 /app/build/
 .gradle/
+
+# Node backend
+node_modules/
+backend/node_modules/

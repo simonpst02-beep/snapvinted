@@ -1,0 +1,58 @@
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import pg from "pg";
+import dotenv from "dotenv";
+
+dotenv.config({ path: "../.env.database" });
+
+const app = Fastify({
+  logger: true
+});
+
+await app.register(cors, {
+  origin: true
+});
+
+await app.register(helmet);
+
+const pool = new pg.Pool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 5432),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD
+});
+
+app.get("/", async () => ({
+  service: "SpyEbay API",
+  version: "1.0.0",
+  status: "online"
+}));
+
+app.get("/health", async () => {
+  try {
+    const result = await pool.query(
+      "SELECT current_database() AS database, now() AS time"
+    );
+
+    return {
+      api: "ok",
+      database: "ok",
+      postgres: result.rows[0]
+    };
+  } catch (error) {
+    app.log.error(error);
+
+    return {
+      api: "ok",
+      database: "error",
+      message: error.message
+    };
+  }
+});
+
+app.listen({
+  host: "0.0.0.0",
+  port: 8103
+});
