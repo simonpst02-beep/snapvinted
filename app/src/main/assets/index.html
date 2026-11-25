@@ -520,6 +520,7 @@
       <button class="it" id="pGuide"><span class="ic">🧭</span><span class="tx">Revoir le guide de démarrage</span><span class="chev">›</span></button>
       <button class="it" id="pRestore"><span class="ic">♻️</span><span class="tx">Restaurer une sauvegarde<small>Fichier .json créé avec « 💾 Sauvegarder » dans Suivi</small></span><span class="chev">›</span></button>
 <button class="it" id="pServer"><span class="ic">☁️</span><span class="tx">Envoyer au serveur<small>Copie le suivi, les alertes et le stock vers ton M710</small></span><span class="chev">›</span></button>
+<button class="it" id="pPull"><span class="ic">⬇️</span><span class="tx">Récupérer du serveur<small>Remplace le suivi, les alertes et le stock locaux par les données du M710</small></span><span class="chev">›</span></button>
       <button class="it" id="pRecent"><span class="ic">🕘</span><span class="tx">Effacer les recherches récentes</span><span class="chev">›</span></button>
       <a class="it" id="pRepo" href="#"><span class="ic">💻</span><span class="tx">Code source<small>Dépôt GitHub de l'appli</small></span><span class="chev">›</span></a>
     </div>
@@ -1360,6 +1361,67 @@ $("pServer").onclick=async()=>{
     b.disabled=false;
   }
 };
+
+$("pPull").onclick=async()=>{
+  if(!confirm("Remplacer le suivi, les alertes et le stock de ce téléphone par les données du M710 ?")) return;
+
+  const b=$("pPull");
+  b.disabled=true;
+
+  try{
+    toast("⬇️ Récupération depuis le serveur…");
+
+    const [tracked,alerts,stock,profs]=await Promise.all([
+      http("GET",SPY_SERVER+"/api/tracked"),
+      http("GET",SPY_SERVER+"/api/alerts"),
+      http("GET",SPY_SERVER+"/api/stock"),
+      http("GET",SPY_SERVER+"/api/profiles")
+    ]);
+
+    const T=Array.isArray(tracked)?tracked:[];
+    const A=Array.isArray(alerts)?alerts:[];
+    const S=Array.isArray(stock)?stock:[];
+    const P=Array.isArray(profs)&&profs.length?profs:[{id:"moi",nom:"Moi"}];
+
+    store.put("profils",P);
+
+    const sansProfil=x=>{
+      const y={...x};
+      delete y.profileId;
+      return y;
+    };
+
+    store.put(
+      "suivi",
+      T.filter(x=>(x.profileId||"moi")==="moi").map(sansProfil)
+    );
+
+    P.filter(p=>p.id!=="moi").forEach(p=>{
+      store.put(
+        "suivi_"+p.id,
+        T.filter(x=>x.profileId===p.id).map(sansProfil)
+      );
+    });
+
+    store.put("alerts",A);
+    store.put("stock",S);
+    store.set("server_last_pull",String(Date.now()));
+
+    renderSuivi();
+    renderAlerts();
+    renderStock();
+    syncConfig();
+    refreshSettings();
+
+    toast(`✅ M710 : ${T.length} suivi · ${A.length} alertes · ${S.length} pièces`);
+
+  }catch(e){
+    toast("❌ Récupération : "+e.message);
+  }finally{
+    b.disabled=false;
+  }
+};
+
 
 $("restoreIn").onchange=async e=>{
   const f=e.target.files[0];e.target.value="";if(!f)return;
