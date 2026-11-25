@@ -1536,7 +1536,7 @@ $("alRun").onclick=()=>{
 window.__alertsDone=r=>{renderAlerts();toast(r.ok?(r.trouves?`🔔 ${r.trouves} bonne${r.trouves>1?"s":""} affaire${r.trouves>1?"s":""} trouvée${r.trouves>1?"s":""}`:"Rien de nouveau pour l'instant"):"Erreur : "+r.erreur);};
 
 /* ===================== Mises à jour (GitHub Releases) ===================== */
-const REPO="simonpst02-beep/Marge-ebay-";
+const REPO="simonpst02-beep/snapvinted";
 const verCode=()=>{try{return window.Native&&Native.version?+Native.version():0}catch(e){return 0}};
 $("uRel").href=`https://github.com/${REPO}/releases`;$("pRepo").href=`https://github.com/${REPO}`;
 async function checkUpdate(manual){

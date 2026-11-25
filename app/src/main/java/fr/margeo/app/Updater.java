@@ -25,7 +25,7 @@ import org.json.JSONObject;
  */
 public class Updater {
 
-    static final String REPO = "simonpst02-beep/Marge-ebay-";
+    static final String REPO = "simonpst02-beep/snapvinted";
     static final int JOB_ID = 43;
     static final String CANAL = "mises_a_jour";
 
