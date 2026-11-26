@@ -516,6 +516,14 @@
 
   <div class="sec"><h4>Données</h4>
     <div class="box">
+      <div class="it">
+        <span class="ic" id="pSyncIcon">🔄</span>
+        <span class="tx">
+          Synchronisation M710
+          <small id="pSyncStatus">Initialisation…</small>
+        </span>
+        <span class="rt" id="pSyncBadge">–</span>
+      </div>
       <button class="it" id="pCache"><span class="ic">🧹</span><span class="tx">Vider le cache des prix<small id="cacheS">Les prix de revente sont gardés 24 h</small></span><span class="chev">›</span></button>
       <button class="it" id="pGuide"><span class="ic">🧭</span><span class="tx">Revoir le guide de démarrage</span><span class="chev">›</span></button>
       <button class="it" id="pRestore"><span class="ic">♻️</span><span class="tx">Restaurer une sauvegarde<small>Fichier .json créé avec « 💾 Sauvegarder » dans Suivi</small></span><span class="chev">›</span></button>
@@ -1376,6 +1384,79 @@ let syncFlushTimer=null;
 
 const syncOutbox=()=>store.json("server_outbox",[]);
 
+function syncAgo(ts){
+  ts=Number(ts||0);
+  if(!ts)return "";
+
+  const d=Math.max(0,Date.now()-ts);
+
+  if(d<10000)return "à l’instant";
+  if(d<60000)return `il y a ${Math.floor(d/1000)} s`;
+  if(d<3600000)return `il y a ${Math.floor(d/60000)} min`;
+  if(d<86400000)return `il y a ${Math.floor(d/3600000)} h`;
+
+  return new Date(ts).toLocaleString("fr-FR",{
+    day:"numeric",
+    month:"short",
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+}
+
+function refreshSyncStatus(){
+  const txt=$("pSyncStatus");
+  const badge=$("pSyncBadge");
+  const icon=$("pSyncIcon");
+
+  if(!txt||!badge||!icon)return;
+
+  const q=syncOutbox().length;
+  const online=navigator.onLine!==false;
+  const last=Number(store.get("server_last_ok","0"))||0;
+  const err=store.get("server_last_error","");
+
+  if(!online){
+    icon.textContent="📴";
+    badge.textContent=q?`${q} attente${q>1?"s":""}`:"Hors ligne";
+    txt.textContent=q
+      ?`Hors ligne · ${q} modification${q>1?"s":""} sera${q>1?"ont":""} envoyée${q>1?"s":""} au retour du réseau`
+      :"Hors ligne · les données locales restent disponibles";
+    return;
+  }
+
+  if(syncFlushBusy){
+    icon.textContent="🔄";
+    badge.textContent="En cours";
+    txt.textContent="Synchronisation avec le M710…";
+    return;
+  }
+
+  if(q){
+    icon.textContent="⏳";
+    badge.textContent=`${q} attente${q>1?"s":""}`;
+    txt.textContent=`${q} modification${q>1?"s":""} en attente d’envoi`;
+    return;
+  }
+
+  if(err){
+    icon.textContent="⚠️";
+    badge.textContent="Erreur";
+    txt.textContent="Dernière synchronisation en erreur · nouvelle tentative automatique";
+    return;
+  }
+
+  if(last){
+    icon.textContent="✅";
+    badge.textContent="OK";
+    txt.textContent="Synchronisé "+syncAgo(last);
+    return;
+  }
+
+  icon.textContent="☁️";
+  badge.textContent="Prêt";
+  txt.textContent="Connexion M710 prête · aucune synchronisation enregistrée";
+}
+
 function syncUuid(){
   if(globalThis.crypto&&crypto.randomUUID)
     return crypto.randomUUID();
@@ -1401,6 +1482,7 @@ function queueServer(key,method,path,body=null){
 
   store.put("server_outbox",q);
   store.set("server_local_dirty","1");
+  refreshSyncStatus();
 
   clearTimeout(syncFlushTimer);
   syncFlushTimer=setTimeout(()=>flushServerQueue(),700);
@@ -1415,6 +1497,8 @@ async function flushServerQueue(){
   if(!q.length)return {ok:true,total:0};
 
   syncFlushBusy=true;
+  refreshSyncStatus();
+
   let done=0;
   let full=false;
 
@@ -1447,6 +1531,9 @@ async function flushServerQueue(){
     }
 
     store.del("server_local_dirty");
+    store.set("server_last_ok",String(Date.now()));
+    store.del("server_last_error");
+    refreshSyncStatus();
 
     try{
       await syncDepuisServeur(full,false);
@@ -1457,17 +1544,23 @@ async function flushServerQueue(){
     return {ok:true,total:done};
 
   }catch(e){
+    store.set("server_last_error",String(e.message||e));
     logErr("Envoi automatique M710 : "+e.message);
+    refreshSyncStatus();
     return {ok:false,error:e.message};
 
   }finally{
     syncFlushBusy=false;
+    refreshSyncStatus();
   }
 }
 
 window.addEventListener("online",()=>{
+  refreshSyncStatus();
   setTimeout(()=>flushServerQueue(),500);
 });
+
+window.addEventListener("offline",refreshSyncStatus);
 
 $("pServer").onclick=async()=>{
   const b=$("pServer");
@@ -1484,8 +1577,11 @@ $("pServer").onclick=async()=>{
     );
 
     store.set("server_last_sync",String(Date.now()));
+    store.set("server_last_ok",String(Date.now()));
+    store.del("server_last_error");
     store.put("server_outbox",[]);
     store.del("server_local_dirty");
+    refreshSyncStatus();
 
     await syncDepuisServeur(true,false);
 
@@ -1634,6 +1730,8 @@ async function syncDepuisServeur(full=false,manual=false){
       store.set("server_sync_cursor",r.serverTime);
 
     store.del("server_local_dirty");
+    store.set("server_last_ok",String(Date.now()));
+    store.del("server_last_error");
 
   }finally{
     syncApply=false;
@@ -1853,6 +1951,7 @@ $("uAuto").onchange=()=>store.set("u_auto",$("uAuto").checked?"1":"0");
 
 /* ===================== Paramètres ===================== */
 function refreshSettings(){
+  refreshSyncStatus();
   const v=verCode();$("uCur").textContent=v?"v"+v:"Navigateur";
   if($("uBadge").textContent==="–")$("uBadge").textContent="v"+v;
   const k=keys();$("pKeysS").textContent=k.id&&k.sec?"Connecté · App ID "+k.id.slice(0,10)+"…":"Non configurées · mode démo";
@@ -2125,6 +2224,9 @@ refreshSettings();
 majQuota();
 try{const sh=window.Native&&Native.sharedText?Native.sharedText():"";if(sh)setTimeout(()=>window.__partage(sh),300);}catch(e){}
 if(store.get("onboard_done")!=="1"&&!suiviTous().length){$("onb").hidden=false;onbRender();}
+refreshSyncStatus();
+setInterval(refreshSyncStatus,15000);
+
 if(window.Native){
   setTimeout(async()=>{
     try{
