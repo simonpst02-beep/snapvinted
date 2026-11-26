@@ -456,11 +456,21 @@ app.post("/api/stock", async (req, reply) => {
     });
   }
 
+  const id = x.id ? String(x.id) : null;
+
   const r = await pool.query(`
-    INSERT INTO stock_parts(name, quantity, unit_price)
-    VALUES($1,$2,$3)
+    INSERT INTO stock_parts(id, name, quantity, unit_price)
+    VALUES(
+      COALESCE($1::uuid, gen_random_uuid()),
+      $2,$3,$4
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      name=EXCLUDED.name,
+      quantity=EXCLUDED.quantity,
+      unit_price=EXCLUDED.unit_price
     RETURNING *
   `, [
+    id,
     nom,
     Math.max(0, Number(x.qte ?? 1)),
     Math.max(0, Number(x.prix ?? 0))
