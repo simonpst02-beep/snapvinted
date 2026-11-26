@@ -84,6 +84,19 @@
   .tools button{flex:1;height:44px;border-radius:14px;border:1px solid var(--stroke);background:var(--glass);font-size:.82rem;font-weight:650;display:flex;align-items:center;justify-content:center;gap:6px}
   .tools button.hl{border-color:color-mix(in srgb,var(--a1) 45%,transparent);background:color-mix(in srgb,var(--a1) 10%,transparent);color:var(--acc-t)}
 
+.watchsec{margin:18px 0 8px}
+.watchhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px}
+.watchhead h2{font-size:1.1rem;margin:0}
+.watchhead button{height:34px;padding:0 12px;border-radius:11px;border:1px solid var(--stroke);background:var(--glass);font-size:.78rem;font-weight:650}
+.watchmeta{font-size:.76rem;color:var(--mut);margin:0 2px 10px}
+.watchnew{display:inline-block;padding:3px 7px;border-radius:7px;background:var(--a1);color:#fff!important;font-size:.64rem!important;font-weight:800!important}
+.watchprice{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+.watchprice div{padding:9px;border-radius:12px;background:var(--sunk);text-align:center}
+.watchprice small{display:block;font-size:.64rem;color:var(--mut)}
+.watchprice b{display:block;margin-top:2px;font-size:.88rem}
+.watchactions{display:flex;gap:8px;margin-top:10px}
+.watchactions>*{flex:1}
+
   .progress{display:none;margin:0 2px 14px;padding:14px 16px;border-radius:18px;background:var(--glass);border:1px solid var(--stroke);font-size:.85rem;color:var(--mut)}
   .progress.on{display:block}
   .progress .tr{height:6px;border-radius:9px;background:var(--glass2);margin-top:10px;overflow:hidden}
@@ -363,6 +376,16 @@
     <button id="scanBtn">📸 Scanner un appareil</button>
     <button id="eanBtn">🏷️ Code-barres</button>
   </div>
+
+  <section class="watchsec" id="watchSec" hidden>
+    <div class="watchhead">
+      <h2>🤖 Affaires détectées par le M710</h2>
+      <button id="watchRefresh">↻ Actualiser</button>
+    </div>
+    <div class="watchmeta" id="watchMeta"></div>
+    <div id="watchList"></div>
+  </section>
+
   <input type="file" id="scanIn" accept="image/*" capture="environment" hidden>
   <input type="file" id="eanIn" accept="image/*" capture="environment" hidden>
   <div class="progress" id="prog"><span id="progT">Recherche…</span><div class="tr"><i id="progB"></i></div></div>
@@ -1379,6 +1402,261 @@ $("tSave").onclick=()=>enregistrer(`spyebay-sauvegarde-${jour()}.json`,"applicat
 
 const SPY_SERVER="http://100.81.68.109:8103";
 
+/* ===================== Affaires détectées par le M710 ===================== */
+
+let watchBusy=false;
+
+const watchAgo=t=>{
+  const n=new Date(t).getTime();
+  if(!n)return "";
+  const d=Math.max(0,Date.now()-n);
+
+  if(d<60000)return "à l’instant";
+  if(d<3600000)return `il y a ${Math.floor(d/60000)} min`;
+  if(d<86400000)return `il y a ${Math.floor(d/3600000)} h`;
+
+  return new Date(n).toLocaleDateString("fr-FR");
+};
+
+function renderServerDeals(){
+  const box=$("watchList");
+  const sec=$("watchSec");
+  const meta=$("watchMeta");
+
+  if(!box||!sec||!meta)return;
+
+  const deals=store.json("watch_candidates",[]);
+  const status=store.json("watch_status",{});
+
+  if(!window.Native&&!deals.length){
+    sec.hidden=true;
+    return;
+  }
+
+  sec.hidden=false;
+
+  const nouveaux=deals.filter(x=>x.__new).length;
+  const run=(status.recentRuns||[])[0];
+
+  let txt=`${deals.length} affaire${deals.length>1?"s":""} enregistrée${deals.length>1?"s":""}`;
+
+  if(nouveaux)
+    txt+=` · ${nouveaux} nouvelle${nouveaux>1?"s":""}`;
+
+  if(run&&run.finished_at)
+    txt+=` · dernier scan ${watchAgo(run.finished_at)}`;
+
+  if(status.running)
+    txt+=" · recherche en cours…";
+
+  meta.textContent=txt;
+
+  if(!deals.length){
+    box.innerHTML=`<div class="empty"><b>🤖</b>Aucune affaire ne correspond encore à tes alertes.<br>Le M710 continue de surveiller eBay.</div>`;
+    return;
+  }
+
+  const suivis=new Set(
+    suiviTous().map(x=>String(x.id))
+  );
+
+  box.innerHTML=deals.map((d,i)=>{
+    const achat=(+d.purchase_price||0)+(+d.shipping_price||0);
+    const revente=+d.resale_estimate||0;
+    const marge=+d.net_margin||0;
+    const pct=+d.margin_percent||0;
+    const id=String(d.ebay_item_id||"");
+    const suivi=suivis.has(id);
+
+    return `
+      <div class="card">
+        <div class="row">
+          <div class="ring" style="--v:${Math.max(5,Math.min(100,pct/2))};--c:${marge>=50?"var(--good)":"var(--mid)"}">
+            <div>${d.image_url?`<img src="${esc(d.image_url)}" loading="lazy" alt="">`:"🤖"}</div>
+          </div>
+
+          <div class="info">
+            <div class="t">${esc(d.title||"Annonce eBay")}</div>
+            <div class="meta">
+              ${d.__new?'<span class="watchnew">NOUVEAU</span>':""}
+              ${d.alert_query?`<span>🔔 ${esc(d.alert_query)}</span>`:""}
+              ${d.french_listing?'<span>🇫🇷 France</span>':""}
+              ${d.seller?`<span>👤 ${esc(d.seller)}</span>`:""}
+            </div>
+          </div>
+
+          <div class="val">
+            <b style="color:${marge>=0?"var(--good)":"var(--bad)"}">
+              ${marge>=0?"+":""}${eur(marge)}
+            </b>
+            <small>${Math.round(pct)} %</small>
+          </div>
+        </div>
+
+        <div class="watchprice">
+          <div>
+            <small>Achat + port</small>
+            <b>${eur(achat)}</b>
+          </div>
+          <div>
+            <small>Revente</small>
+            <b>${eur(revente)}</b>
+          </div>
+          <div>
+            <small>Achat max</small>
+            <b>${eur(+d.maximum_purchase||0)}</b>
+          </div>
+        </div>
+
+        <div class="watchactions">
+          <button class="ghost-b"
+            onclick="addServerDeal(${i})">
+            ${suivi?"★ Déjà suivi":"☆ Ajouter au suivi"}
+          </button>
+
+          <a class="ghost-b"
+             href="${esc(d.url||"#")}"
+             target="_blank">
+             Voir sur eBay ↗
+          </a>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function loadServerDeals(manual=false){
+  if(!window.Native||watchBusy)return;
+
+  watchBusy=true;
+
+  if(manual){
+    $("watchRefresh").disabled=true;
+    $("watchRefresh").textContent="…";
+  }
+
+  try{
+    const cutoff=Number(
+      store.get("watch_seen_at","0")
+    )||0;
+
+    const [deals,status]=await Promise.all([
+      http(
+        "GET",
+        SPY_SERVER+"/api/watch/candidates?limit=30"
+      ),
+      http(
+        "GET",
+        SPY_SERVER+"/api/watch/status"
+      )
+    ]);
+
+    const list=Array.isArray(deals)?deals:[];
+
+    const mapped=list.map(x=>({
+      ...x,
+      __new:
+        new Date(x.detected_at).getTime() >
+        cutoff
+    }));
+
+    store.put("watch_candidates",mapped);
+    store.put("watch_status",status||{});
+
+    renderServerDeals();
+
+    if(mapped.length){
+      const latest=Math.max(
+        ...mapped.map(x=>
+          new Date(x.detected_at).getTime()||0
+        )
+      );
+
+      if(latest)
+        store.set(
+          "watch_seen_at",
+          String(latest)
+        );
+    }
+
+    if(manual)
+      toast(`🤖 ${mapped.length} affaire${mapped.length>1?"s":""} chargée${mapped.length>1?"s":""}`);
+
+  }catch(e){
+    renderServerDeals();
+
+    if(manual)
+      toast("M710 inaccessible : "+e.message);
+
+  }finally{
+    watchBusy=false;
+
+    if(manual){
+      $("watchRefresh").disabled=false;
+      $("watchRefresh").textContent="↻ Actualiser";
+    }
+  }
+}
+
+function addServerDeal(i){
+  const d=store.json("watch_candidates",[])[i];
+  if(!d)return;
+
+  const id=String(d.ebay_item_id||"");
+  if(!id)return;
+
+  if(trouverSuivi(id)){
+    toast("Cette affaire est déjà dans le suivi");
+    return;
+  }
+
+  const pc=profilCourant()==="tous"
+    ?"moi"
+    :profilCourant();
+
+  const achat=
+    (+d.purchase_price||0)+
+    (+d.shipping_price||0);
+
+  const x={
+    id,
+    itemId:id,
+    t:d.title||"Annonce eBay",
+    img:d.image_url||"",
+    ico:"🤖",
+    url:d.url||"",
+    achatPrev:achat,
+    reventePrev:+d.resale_estimate||0,
+    qty:1,
+    min:null,
+    max:null,
+    occ:true,
+    margePrev:+d.net_margin||0,
+    statut:"repere",
+    achat:"",
+    pieces:"",
+    vente:"",
+    notes:"Détecté automatiquement par le M710",
+    date:Date.now(),
+    dates:{}
+  };
+
+  const l=lireSuivi(pc);
+  l.unshift(x);
+  ecrireSuivi(pc,l);
+
+  queueServer(
+    "tracked:"+x.id,
+    "POST",
+    "/api/tracked",
+    {...x,profileId:pc}
+  );
+
+  renderServerDeals();
+  toast("★ Ajouté au suivi");
+}
+
+$("watchRefresh").onclick=()=>loadServerDeals(true);
+
 let syncFlushBusy=false;
 let syncFlushTimer=null;
 
@@ -1829,7 +2107,10 @@ function view(v){
   $("cbar").hidden=v!=="vAI";
   [["navS","vSearch"],["navT","vTrack"],["navA","vAI"],["navP","vSet"]].forEach(([b,x])=>$(b).classList.toggle("on",x===v));
   window.scrollTo(0,0);
-  if(v==="vSearch")render();
+  if(v==="vSearch"){
+    render();
+    loadServerDeals(false);
+  }
   if(v==="vTrack")renderSuivi();
   if(v==="vSet")refreshSettings();
   if(v==="vAI")chatInit();
@@ -2227,7 +2508,11 @@ if(store.get("onboard_done")!=="1"&&!suiviTous().length){$("onb").hidden=false;o
 refreshSyncStatus();
 setInterval(refreshSyncStatus,15000);
 
+renderServerDeals();
+
 if(window.Native){
+  setTimeout(()=>loadServerDeals(false),1200);
+  setInterval(()=>loadServerDeals(false),60000);
   setTimeout(async()=>{
     try{
       await flushServerQueue();
