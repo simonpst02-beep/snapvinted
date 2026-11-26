@@ -3,6 +3,12 @@ name: Construire l'APK
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
   workflow_dispatch:
 
 permissions:

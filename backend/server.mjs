@@ -5,6 +5,7 @@ import pg from "pg";
 import dotenv from "dotenv";
 import { randomUUID } from "node:crypto";
 import registerBackupRoutes from "./backup-routes.mjs";
+import registerSyncRoutes from "./sync-routes.mjs";
 
 dotenv.config({ path: "../.env.database" });
 
@@ -25,6 +26,7 @@ const pool = new pg.Pool({
 });
 
 await registerBackupRoutes(app, pool);
+await registerSyncRoutes(app, pool);
 
 const n = v =>
   v === "" || v === null || v === undefined ? null : Number(v);
