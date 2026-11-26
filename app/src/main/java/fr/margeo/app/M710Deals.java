@@ -254,7 +254,7 @@ public class M710Deals {
         URL url =
                 new URL(
                         SERVER
-                        + "/api/watch/candidates?limit=50"
+                        + "/api/watch/candidates?status=new&limit=50"
                 );
 
         HttpURLConnection c =

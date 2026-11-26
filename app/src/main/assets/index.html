@@ -94,8 +94,8 @@
 .watchprice div{padding:9px;border-radius:12px;background:var(--sunk);text-align:center}
 .watchprice small{display:block;font-size:.64rem;color:var(--mut)}
 .watchprice b{display:block;margin-top:2px;font-size:.88rem}
-.watchactions{display:flex;gap:8px;margin-top:10px}
-.watchactions>*{flex:1}
+.watchactions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.watchactions>*{flex:1 1 42%}
 
   .progress{display:none;margin:0 2px 14px;padding:14px 16px;border-radius:18px;background:var(--glass);border:1px solid var(--stroke);font-size:.85rem;color:var(--mut)}
   .progress.on{display:block}
@@ -1435,10 +1435,14 @@ function renderServerDeals(){
 
   sec.hidden=false;
 
-  const nouveaux=deals.filter(x=>x.__new).length;
+  const nouveaux=deals.filter(
+    x=>x.state==="new"||x.__new
+  ).length;
+
   const run=(status.recentRuns||[])[0];
 
-  let txt=`${deals.length} affaire${deals.length>1?"s":""} enregistrée${deals.length>1?"s":""}`;
+  let txt=
+    `${deals.length} affaire${deals.length>1?"s":""}`;
 
   if(nouveaux)
     txt+=` · ${nouveaux} nouvelle${nouveaux>1?"s":""}`;
@@ -1452,7 +1456,12 @@ function renderServerDeals(){
   meta.textContent=txt;
 
   if(!deals.length){
-    box.innerHTML=`<div class="empty"><b>🤖</b>Aucune affaire ne correspond encore à tes alertes.<br>Le M710 continue de surveiller eBay.</div>`;
+    box.innerHTML=`
+      <div class="empty">
+        <b>🤖</b>
+        Aucune affaire à traiter.<br>
+        Le M710 continue de surveiller eBay.
+      </div>`;
     return;
   }
 
@@ -1461,68 +1470,157 @@ function renderServerDeals(){
   );
 
   box.innerHTML=deals.map((d,i)=>{
-    const achat=(+d.purchase_price||0)+(+d.shipping_price||0);
-    const revente=+d.resale_estimate||0;
-    const marge=+d.net_margin||0;
-    const pct=+d.margin_percent||0;
-    const id=String(d.ebay_item_id||"");
-    const suivi=suivis.has(id);
+    const achat=
+      (+d.purchase_price||0)+
+      (+d.shipping_price||0);
+
+    const revente=
+      +d.resale_estimate||0;
+
+    const marge=
+      +d.net_margin||0;
+
+    const pct=
+      +d.margin_percent||0;
+
+    const id=
+      String(d.ebay_item_id||"");
+
+    const suivi=
+      suivis.has(id);
+
+    const nouveau=
+      d.state==="new"||d.__new;
 
     return `
       <div class="card">
         <div class="row">
-          <div class="ring" style="--v:${Math.max(5,Math.min(100,pct/2))};--c:${marge>=50?"var(--good)":"var(--mid)"}">
-            <div>${d.image_url?`<img src="${esc(d.image_url)}" loading="lazy" alt="">`:"🤖"}</div>
+
+          <div class="ring"
+               style="--v:${Math.max(5,Math.min(100,pct/2))};
+                      --c:${marge>=50?"var(--good)":"var(--mid)"}">
+
+            <div>
+              ${d.image_url
+                ?`<img src="${esc(d.image_url)}"
+                       loading="lazy" alt="">`
+                :"🤖"}
+            </div>
           </div>
 
           <div class="info">
-            <div class="t">${esc(d.title||"Annonce eBay")}</div>
+
+            <div class="t">
+              ${esc(d.title||"Annonce eBay")}
+            </div>
+
             <div class="meta">
-              ${d.__new?'<span class="watchnew">NOUVEAU</span>':""}
-              ${d.alert_query?`<span>🔔 ${esc(d.alert_query)}</span>`:""}
-              ${d.french_listing?'<span>🇫🇷 France</span>':""}
-              ${d.seller?`<span>👤 ${esc(d.seller)}</span>`:""}
+
+              ${nouveau
+                ?'<span class="watchnew">NOUVEAU</span>'
+                :'<span>VU</span>'}
+
+              ${d.alert_query
+                ?`<span>🔔 ${esc(d.alert_query)}</span>`
+                :""}
+
+              ${d.french_listing
+                ?'<span>🇫🇷 France</span>'
+                :""}
+
+              ${d.seller
+                ?`<span>👤 ${esc(d.seller)}</span>`
+                :""}
+
             </div>
           </div>
 
           <div class="val">
-            <b style="color:${marge>=0?"var(--good)":"var(--bad)"}">
+            <b style="color:${marge>=0
+              ?"var(--good)"
+              :"var(--bad)"}">
+
               ${marge>=0?"+":""}${eur(marge)}
             </b>
+
             <small>${Math.round(pct)} %</small>
           </div>
         </div>
 
+
         <div class="watchprice">
+
           <div>
             <small>Achat + port</small>
             <b>${eur(achat)}</b>
           </div>
+
           <div>
             <small>Revente</small>
             <b>${eur(revente)}</b>
           </div>
+
           <div>
             <small>Achat max</small>
             <b>${eur(+d.maximum_purchase||0)}</b>
           </div>
+
         </div>
 
+
         <div class="watchactions">
+
           <button class="ghost-b"
-            onclick="addServerDeal(${i})">
-            ${suivi?"★ Déjà suivi":"☆ Ajouter au suivi"}
+                  onclick="addServerDeal(${i},false)">
+            ${suivi
+              ?"★ Déjà suivi"
+              :"⭐ Suivre"}
+          </button>
+
+          <button class="ghost-b"
+                  onclick="addServerDeal(${i},true)">
+            🛒 Acheté
+          </button>
+
+          <button class="ghost-b"
+                  onclick="ignoreServerDeal(${i})">
+            ✕ Ignorer
           </button>
 
           <a class="ghost-b"
              href="${esc(d.url||"#")}"
              target="_blank">
-             Voir sur eBay ↗
+            Voir eBay ↗
           </a>
+
         </div>
       </div>`;
   }).join("");
 }
+
+
+async function markServerDealsSeen(deals){
+  const ids=deals
+    .filter(x=>x.state==="new")
+    .map(x=>String(x.id||""))
+    .filter(Boolean);
+
+  if(!ids.length)return;
+
+  try{
+    await http(
+      "POST",
+      SPY_SERVER+"/api/watch/candidates/seen",
+      {"Content-Type":"application/json"},
+      JSON.stringify({ids})
+    );
+  }catch(e){
+    logErr(
+      "Affaires M710 vues : "+e.message
+    );
+  }
+}
+
 
 async function loadServerDeals(manual=false){
   if(!window.Native||watchBusy)return;
@@ -1535,32 +1633,38 @@ async function loadServerDeals(manual=false){
   }
 
   try{
-    const cutoff=Number(
-      store.get("watch_seen_at","0")
-    )||0;
-
     const [deals,status]=await Promise.all([
       http(
         "GET",
-        SPY_SERVER+"/api/watch/candidates?limit=30"
+        SPY_SERVER+
+        "/api/watch/candidates?status=new,seen&limit=30"
       ),
+
       http(
         "GET",
         SPY_SERVER+"/api/watch/status"
       )
     ]);
 
-    const list=Array.isArray(deals)?deals:[];
+    const list=
+      Array.isArray(deals)
+        ?deals
+        :[];
 
     const mapped=list.map(x=>({
       ...x,
-      __new:
-        new Date(x.detected_at).getTime() >
-        cutoff
+      __new:x.state==="new"
     }));
 
-    store.put("watch_candidates",mapped);
-    store.put("watch_status",status||{});
+    store.put(
+      "watch_candidates",
+      mapped
+    );
+
+    store.put(
+      "watch_status",
+      status||{}
+    );
 
     renderServerDeals();
 
@@ -1568,107 +1672,233 @@ async function loadServerDeals(manual=false){
       mapped.length &&
       window.Native &&
       Native.askNotifications &&
-      store.get("m710_notif_asked","0")!=="1"
+      store.get(
+        "m710_notif_asked",
+        "0"
+      )!=="1"
     ){
       store.set(
         "m710_notif_asked",
         "1"
       );
+
       Native.askNotifications();
     }
 
-    if(mapped.length){
-      const latest=Math.max(
-        ...mapped.map(x=>
-          new Date(x.detected_at).getTime()||0
-        )
-      );
-
-      if(latest)
-        store.set(
-          "watch_seen_at",
-          String(latest)
-        );
-    }
+    /*
+     * Le serveur mémorise que les nouvelles
+     * affaires ont réellement été affichées.
+     * Elles restent visuellement "NOUVEAU"
+     * jusqu'au prochain rafraîchissement.
+     */
+    setTimeout(
+      ()=>markServerDealsSeen(mapped),
+      1200
+    );
 
     if(manual)
-      toast(`🤖 ${mapped.length} affaire${mapped.length>1?"s":""} chargée${mapped.length>1?"s":""}`);
+      toast(
+        `🤖 ${mapped.length} affaire${
+          mapped.length>1?"s":""
+        } à traiter`
+      );
 
   }catch(e){
+
     renderServerDeals();
 
     if(manual)
-      toast("M710 inaccessible : "+e.message);
+      toast(
+        "M710 inaccessible : "+e.message
+      );
 
   }finally{
     watchBusy=false;
 
     if(manual){
       $("watchRefresh").disabled=false;
-      $("watchRefresh").textContent="↻ Actualiser";
+      $("watchRefresh").textContent=
+        "↻ Actualiser";
     }
   }
 }
 
-function addServerDeal(i){
-  const d=store.json("watch_candidates",[])[i];
-  if(!d)return;
 
-  const id=String(d.ebay_item_id||"");
-  if(!id)return;
-
-  if(trouverSuivi(id)){
-    toast("Cette affaire est déjà dans le suivi");
-    return;
-  }
-
-  const pc=profilCourant()==="tous"
-    ?"moi"
-    :profilCourant();
+function makeServerDeal(d,bought=false){
+  const id=
+    String(d.ebay_item_id||"");
 
   const achat=
     (+d.purchase_price||0)+
     (+d.shipping_price||0);
 
-  const x={
+  return {
     id,
     itemId:id,
+
     t:d.title||"Annonce eBay",
     img:d.image_url||"",
     ico:"🤖",
     url:d.url||"",
+
     achatPrev:achat,
     reventePrev:+d.resale_estimate||0,
+
     qty:1,
+
     min:null,
     max:null,
     occ:true,
+
     margePrev:+d.net_margin||0,
-    statut:"repere",
-    achat:"",
+
+    statut:bought
+      ?"achete"
+      :"repere",
+
+    achat:bought
+      ?achat
+      :"",
+
     pieces:"",
     vente:"",
+
     notes:"Détecté automatiquement par le M710",
+
     date:Date.now(),
-    dates:{}
+
+    dates:bought
+      ?{achete:Date.now()}
+      :{}
   };
+}
 
-  const l=lireSuivi(pc);
-  l.unshift(x);
-  ecrireSuivi(pc,l);
 
-  queueServer(
-    "tracked:"+x.id,
-    "POST",
-    "/api/tracked",
-    {...x,profileId:pc}
+function removeLocalServerDeal(candidateId){
+  const l=store
+    .json("watch_candidates",[])
+    .filter(
+      x=>String(x.id)!==String(candidateId)
+    );
+
+  store.put(
+    "watch_candidates",
+    l
   );
 
   renderServerDeals();
-  toast("★ Ajouté au suivi");
 }
 
-$("watchRefresh").onclick=()=>loadServerDeals(true);
+
+async function addServerDeal(i,bought=false){
+  const d=
+    store.json("watch_candidates",[])[i];
+
+  if(!d)return;
+
+  const id=
+    String(d.ebay_item_id||"");
+
+  if(!id)return;
+
+  const achat=
+    (+d.purchase_price||0)+
+    (+d.shipping_price||0);
+
+  const existant=
+    trouverSuivi(id);
+
+  if(existant){
+
+    if(bought){
+      majSuivi(
+        id,
+        "achat",
+        achat
+      );
+
+      majSuivi(
+        id,
+        "statut",
+        "achete"
+      );
+    }
+
+  }else{
+
+    const pc=
+      profilCourant()==="tous"
+        ?"moi"
+        :profilCourant();
+
+    const x=
+      makeServerDeal(d,bought);
+
+    const l=lireSuivi(pc);
+
+    l.unshift(x);
+
+    ecrireSuivi(pc,l);
+
+    queueServer(
+      "tracked:"+x.id,
+      "POST",
+      "/api/tracked",
+      {...x,profileId:pc}
+    );
+  }
+
+
+  queueServer(
+    "candidate:"+d.id,
+    "POST",
+    "/api/watch/candidates/"+
+      encodeURIComponent(d.id)+
+      "/action",
+    {
+      action:bought
+        ?"bought"
+        :"tracked"
+    }
+  );
+
+  removeLocalServerDeal(d.id);
+
+  toast(
+    bought
+      ?"🛒 Ajouté comme acheté"
+      :"★ Ajouté au suivi"
+  );
+}
+
+
+function ignoreServerDeal(i){
+  const d=
+    store.json("watch_candidates",[])[i];
+
+  if(!d)return;
+
+  queueServer(
+    "candidate:"+d.id,
+    "POST",
+    "/api/watch/candidates/"+
+      encodeURIComponent(d.id)+
+      "/action",
+    {
+      action:"ignored"
+    }
+  );
+
+  removeLocalServerDeal(d.id);
+
+  toast(
+    "Affaire ignorée"
+  );
+}
+
+
+$("watchRefresh").onclick=
+  ()=>loadServerDeals(true);
 
 let syncFlushBusy=false;
 let syncFlushTimer=null;

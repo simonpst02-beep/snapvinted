@@ -402,6 +402,7 @@ async function scanAlert(
     }, stats);
 
     let saved = 0;
+    const seenIds = [];
 
     for (const item of items) {
       const purchase =
@@ -508,7 +509,13 @@ async function scanAlert(
           buying_type=EXCLUDED.buying_type,
           french_listing=EXCLUDED.french_listing,
           raw_data=EXCLUDED.raw_data,
-          last_seen_at=now()
+          last_seen_at=now(),
+          missing_runs=0,
+          state=CASE
+            WHEN listing_candidates.state='expired'
+              THEN 'new'
+            ELSE listing_candidates.state
+          END
       `, [
         alert.id,
         runId,
@@ -533,8 +540,29 @@ async function scanAlert(
         JSON.stringify(item)
       ]);
 
+      seenIds.push(String(item.itemId));
       saved++;
     }
+
+    /*
+     * Une annonce qui n'est plus rentable ou plus retournée
+     * pendant 3 scans successifs est considérée comme expirée.
+     */
+    await pool.query(`
+      UPDATE listing_candidates
+      SET
+        missing_runs=missing_runs+1,
+        state=CASE
+          WHEN missing_runs+1 >= 3 THEN 'expired'
+          ELSE state
+        END
+      WHERE alert_id=$1
+        AND state IN ('new','seen')
+        AND NOT (ebay_item_id = ANY($2::text[]))
+    `, [
+      alert.id,
+      seenIds
+    ]);
 
     await pool.query(`
       UPDATE search_runs
@@ -617,6 +645,17 @@ async function runAll(pool) {
       });
     }
   }
+
+  /*
+   * Nettoyage uniquement des affaires ignorées/expirées
+   * depuis plus de 30 jours.
+   */
+  await pool.query(`
+    DELETE FROM listing_candidates
+    WHERE state IN ('ignored','expired')
+      AND COALESCE(actioned_at,last_seen_at,detected_at)
+          < now() - interval '30 days'
+  `);
 
   return {
     alerts: alerts.rowCount,
@@ -701,6 +740,25 @@ export default async function registerEbayWatcher(
         )
       );
 
+      const allowed = new Set([
+        "new",
+        "seen",
+        "ignored",
+        "tracked",
+        "bought",
+        "expired"
+      ]);
+
+      let states = String(
+        req.query?.status || "new,seen"
+      )
+      .split(",")
+      .map(x => x.trim())
+      .filter(x => allowed.has(x));
+
+      if (!states.length)
+        states = ["new","seen"];
+
       const r = await pool.query(`
         SELECT
           lc.id,
@@ -722,21 +780,121 @@ export default async function registerEbayWatcher(
           lc.french_listing,
           lc.detected_at,
           lc.last_seen_at,
+          lc.state,
+          lc.viewed_at,
+          lc.actioned_at,
+          lc.missing_runs,
           a.query AS alert_query,
           a.category_name AS alert_category
+
         FROM listing_candidates lc
 
         LEFT JOIN alerts a
           ON a.id=lc.alert_id
 
+        WHERE lc.state = ANY($2::text[])
+
         ORDER BY
+          CASE lc.state
+            WHEN 'new' THEN 0
+            ELSE 1
+          END,
           lc.net_margin DESC NULLS LAST,
           lc.detected_at DESC
 
         LIMIT $1
-      `, [limit]);
+      `, [
+        limit,
+        states
+      ]);
 
       return r.rows;
     }
   );
+
+
+  /*
+   * Marque les affaires affichées dans l'application comme vues.
+   */
+  app.post(
+    "/api/watch/candidates/seen",
+    async req => {
+
+      const ids = Array.isArray(req.body?.ids)
+        ? req.body.ids
+            .map(String)
+            .slice(0,100)
+        : [];
+
+      if (!ids.length)
+        return {updated:0};
+
+      const r = await pool.query(`
+        UPDATE listing_candidates
+        SET
+          state='seen',
+          viewed_at=COALESCE(viewed_at,now())
+        WHERE id = ANY($1::uuid[])
+          AND state='new'
+      `, [ids]);
+
+      return {
+        updated:r.rowCount
+      };
+    }
+  );
+
+
+  /*
+   * Actions de la boîte de réception :
+   * suivre / acheté / ignorer.
+   */
+  app.post(
+    "/api/watch/candidates/:id/action",
+    async (req, reply) => {
+
+      const action = String(
+        req.body?.action || ""
+      );
+
+      const states = {
+        seen: "seen",
+        ignored: "ignored",
+        tracked: "tracked",
+        bought: "bought"
+      };
+
+      if (!states[action]) {
+        return reply.code(400).send({
+          error:"Action invalide"
+        });
+      }
+
+      const r = await pool.query(`
+        UPDATE listing_candidates
+        SET
+          state=$2,
+          viewed_at=COALESCE(viewed_at,now()),
+          actioned_at=CASE
+            WHEN $2 IN ('ignored','tracked','bought')
+              THEN now()
+            ELSE actioned_at
+          END
+        WHERE id=$1::uuid
+        RETURNING *
+      `, [
+        req.params.id,
+        states[action]
+      ]);
+
+      if (!r.rowCount) {
+        return reply.code(404).send({
+          error:"Affaire introuvable"
+        });
+      }
+
+      return r.rows[0];
+    }
+  );
+
 }
