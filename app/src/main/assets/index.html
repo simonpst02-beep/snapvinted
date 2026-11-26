@@ -520,7 +520,7 @@
       <button class="it" id="pGuide"><span class="ic">🧭</span><span class="tx">Revoir le guide de démarrage</span><span class="chev">›</span></button>
       <button class="it" id="pRestore"><span class="ic">♻️</span><span class="tx">Restaurer une sauvegarde<small>Fichier .json créé avec « 💾 Sauvegarder » dans Suivi</small></span><span class="chev">›</span></button>
 <button class="it" id="pServer"><span class="ic">☁️</span><span class="tx">Envoyer au serveur<small>Copie le suivi, les alertes et le stock vers ton M710</small></span><span class="chev">›</span></button>
-<button class="it" id="pPull"><span class="ic">⬇️</span><span class="tx">Récupérer du serveur<small>Remplace le suivi, les alertes et le stock locaux par les données du M710</small></span><span class="chev">›</span></button>
+<button class="it" id="pPull"><span class="ic">⬇️</span><span class="tx">Synchroniser avec le M710<small>Récupère les changements du serveur et les suppressions</small></span><span class="chev">›</span></button>
       <button class="it" id="pRecent"><span class="ic">🕘</span><span class="tx">Effacer les recherches récentes</span><span class="chev">›</span></button>
       <a class="it" id="pRepo" href="#"><span class="ic">💻</span><span class="tx">Code source<small>Dépôt GitHub de l'appli</small></span><span class="chev">›</span></a>
     </div>
@@ -991,7 +991,9 @@ const profilCourant=()=>{const c=store.get("profil","moi");return c==="tous"||pr
 const nomProfil=id=>(profils().find(p=>p.id===id)||{}).nom||"Moi";
 const cleSuivi=id=>id==="moi"?"suivi":"suivi_"+id;
 const lireSuivi=id=>store.json(cleSuivi(id),[]);
-const ecrireSuivi=(id,l)=>store.put(cleSuivi(id),l);
+let syncApply=false;
+const markLocalDirty=()=>{if(!syncApply)store.set("server_local_dirty","1");};
+const ecrireSuivi=(id,l)=>{store.put(cleSuivi(id),l);markLocalDirty();};
 const suiviTous=()=>profils().flatMap(p=>lireSuivi(p.id).map(x=>({...x,__p:p.id})));
 const suiviVue=()=>profilCourant()==="tous"?suiviTous():lireSuivi(profilCourant()).map(x=>({...x,__p:profilCourant()}));
 function trouverSuivi(id){for(const p of profils()){const l=lireSuivi(p.id),x=l.find(y=>y.id===id);if(x)return{p:p.id,l,x};}return null;}
@@ -1009,10 +1011,10 @@ function renderPList(){
 $("pClose").onclick=()=>sheet(null);
 $("pAdd").onclick=()=>{const n=$("pNom").value.trim();if(!n)return toast("Indique un prénom");
   const P=profils();if(!store.json("profils",[]).length)P.splice(0,1,{id:"moi",nom:"Moi"});
-  const id=Date.now().toString(36);P.push({id,nom:n});store.put("profils",P);store.set("profil",id);$("pNom").value="";renderPList();renderSuivi();toast("👤 Profil "+n+" créé");};
+  const id=Date.now().toString(36);P.push({id,nom:n});store.put("profils",P);markLocalDirty();store.set("profil",id);$("pNom").value="";renderPList();renderSuivi();toast("👤 Profil "+n+" créé");};
 function supprProfil(id){
   const l=lireSuivi(id);if(l.length){ecrireSuivi("moi",lireSuivi("moi").concat(l));toast(`${l.length} appareil(s) déplacé(s) vers « Moi »`);}
-  store.del(cleSuivi(id));store.put("profils",profils().filter(p=>p.id!==id));if(profilCourant()===id)store.set("profil","moi");renderPList();renderSuivi();
+  store.del(cleSuivi(id));store.put("profils",profils().filter(p=>p.id!==id));markLocalDirty();if(profilCourant()===id)store.set("profil","moi");renderPList();renderSuivi();
 }
 
 /* ===================== Voix ===================== */
@@ -1352,6 +1354,9 @@ $("pServer").onclick=async()=>{
     );
 
     store.set("server_last_sync",String(Date.now()));
+    store.del("server_local_dirty");
+
+    await syncDepuisServeur(true,false);
 
     toast(`✅ Serveur : ${r.tracked} suivi · ${r.alerts} alertes · ${r.stock} pièces`);
 
@@ -1362,61 +1367,174 @@ $("pServer").onclick=async()=>{
   }
 };
 
-$("pPull").onclick=async()=>{
-  if(!confirm("Remplacer le suivi, les alertes et le stock de ce téléphone par les données du M710 ?")) return;
+async function syncDepuisServeur(full=false,manual=false){
+  const dirty=store.get("server_local_dirty","0")==="1";
 
+  if(dirty&&!full){
+    if(manual)toast("⚠️ Envoie d’abord tes modifications locales au M710");
+    return {skipped:true};
+  }
+
+  if(dirty&&full&&manual){
+    if(!confirm("Des modifications locales ne sont pas encore envoyées. Les remplacer par les données du M710 ?"))
+      return {skipped:true};
+  }
+
+  const cursor=full
+    ?"1970-01-01T00:00:00.000Z"
+    :store.get("server_sync_cursor","1970-01-01T00:00:00.000Z");
+
+  const r=await http(
+    "GET",
+    SPY_SERVER+"/api/sync?since="+encodeURIComponent(cursor)
+  );
+
+  const P=Array.isArray(r.profiles)?r.profiles:[];
+  const T=Array.isArray(r.tracked)?r.tracked:[];
+  const A=Array.isArray(r.alerts)?r.alerts:[];
+  const S=Array.isArray(r.stock)?r.stock:[];
+  const D=Array.isArray(r.deleted)?r.deleted:[];
+
+  syncApply=true;
+
+  try{
+    if(full){
+      const anciens=profils();
+      anciens.forEach(p=>store.del(cleSuivi(p.id)));
+      store.put("profils",[]);
+      store.put("suivi",[]);
+      store.put("alerts",[]);
+      store.put("stock",[]);
+    }
+
+    /* Profils */
+    let profs=store.json("profils",[]);
+    if(!profs.some(p=>p.id==="moi"))profs.unshift({id:"moi",nom:"Moi"});
+
+    P.forEach(x=>{
+      const i=profs.findIndex(p=>p.id===x.id);
+      const v={id:x.id,nom:x.nom,updatedAt:x.updatedAt};
+      if(i>=0)profs[i]=v;
+      else profs.push(v);
+    });
+
+    store.put("profils",profs);
+
+    /* Suivi */
+    T.forEach(x=>{
+      for(const p of profils()){
+        const l=lireSuivi(p.id);
+        const n=l.filter(y=>String(y.id)!==String(x.id));
+        if(n.length!==l.length)ecrireSuivi(p.id,n);
+      }
+
+      const pid=x.profileId||"moi";
+
+      let ps=store.json("profils",[]);
+      if(!ps.some(p=>p.id===pid)){
+        ps.push({id:pid,nom:pid});
+        store.put("profils",ps);
+      }
+
+      const y={...x};
+      delete y.profileId;
+
+      const l=lireSuivi(pid);
+      l.unshift(y);
+      ecrireSuivi(pid,l);
+    });
+
+    /* Alertes */
+    let alerts=store.json("alerts",[]);
+    A.forEach(x=>{
+      const i=alerts.findIndex(y=>String(y.id)===String(x.id));
+      if(i>=0)alerts[i]=x;
+      else alerts.push(x);
+    });
+    store.put("alerts",alerts);
+
+    /* Stock */
+    let stock=store.json("stock",[]);
+    S.forEach(x=>{
+      const i=stock.findIndex(y=>String(y.id)===String(x.id));
+      if(i>=0)stock[i]=x;
+      else stock.push(x);
+    });
+    store.put("stock",stock);
+
+    /* Suppressions */
+    D.forEach(d=>{
+      if(d.type==="tracked"){
+        profils().forEach(p=>{
+          ecrireSuivi(
+            p.id,
+            lireSuivi(p.id).filter(x=>String(x.id)!==String(d.id))
+          );
+        });
+      }
+
+      if(d.type==="alert"){
+        store.put(
+          "alerts",
+          store.json("alerts",[]).filter(x=>String(x.id)!==String(d.id))
+        );
+      }
+
+      if(d.type==="stock"){
+        store.put(
+          "stock",
+          store.json("stock",[]).filter(x=>String(x.id)!==String(d.id))
+        );
+      }
+
+      if(d.type==="profile"&&d.id!=="moi"){
+        store.del(cleSuivi(d.id));
+        store.put(
+          "profils",
+          store.json("profils",[]).filter(x=>String(x.id)!==String(d.id))
+        );
+        if(store.get("profil","moi")===String(d.id))
+          store.set("profil","moi");
+      }
+    });
+
+    if(r.serverTime)
+      store.set("server_sync_cursor",r.serverTime);
+
+    store.del("server_local_dirty");
+
+  }finally{
+    syncApply=false;
+  }
+
+  renderSuivi();
+  renderAlerts();
+  renderStock();
+  syncConfig();
+  refreshSettings();
+
+  const total=P.length+T.length+A.length+S.length+D.length;
+
+  if(manual){
+    toast(
+      total
+        ?`✅ M710 : ${total} changement${total>1?"s":""} synchronisé${total>1?"s":""}`
+        :"✅ M710 : déjà synchronisé"
+    );
+  }
+
+  return {ok:true,total};
+}
+
+$("pPull").onclick=async()=>{
   const b=$("pPull");
   b.disabled=true;
 
   try{
-    toast("⬇️ Récupération depuis le serveur…");
-
-    const [tracked,alerts,stock,profs]=await Promise.all([
-      http("GET",SPY_SERVER+"/api/tracked"),
-      http("GET",SPY_SERVER+"/api/alerts"),
-      http("GET",SPY_SERVER+"/api/stock"),
-      http("GET",SPY_SERVER+"/api/profiles")
-    ]);
-
-    const T=Array.isArray(tracked)?tracked:[];
-    const A=Array.isArray(alerts)?alerts:[];
-    const S=Array.isArray(stock)?stock:[];
-    const P=Array.isArray(profs)&&profs.length?profs:[{id:"moi",nom:"Moi"}];
-
-    store.put("profils",P);
-
-    const sansProfil=x=>{
-      const y={...x};
-      delete y.profileId;
-      return y;
-    };
-
-    store.put(
-      "suivi",
-      T.filter(x=>(x.profileId||"moi")==="moi").map(sansProfil)
-    );
-
-    P.filter(p=>p.id!=="moi").forEach(p=>{
-      store.put(
-        "suivi_"+p.id,
-        T.filter(x=>x.profileId===p.id).map(sansProfil)
-      );
-    });
-
-    store.put("alerts",A);
-    store.put("stock",S);
-    store.set("server_last_pull",String(Date.now()));
-
-    renderSuivi();
-    renderAlerts();
-    renderStock();
-    syncConfig();
-    refreshSettings();
-
-    toast(`✅ M710 : ${T.length} suivi · ${A.length} alertes · ${S.length} pièces`);
-
+    toast("⬇️ Synchronisation avec le M710…");
+    await syncDepuisServeur(true,true);
   }catch(e){
-    toast("❌ Récupération : "+e.message);
+    toast("❌ Synchronisation : "+e.message);
   }finally{
     b.disabled=false;
   }
@@ -1430,7 +1548,7 @@ $("restoreIn").onchange=async e=>{
     Object.keys(o).filter(k=>k.startsWith("suivi_")&&Array.isArray(o[k])).forEach(k=>store.put(k,o[k]));
     if(o.price_hist)store.put("price_hist",o.price_hist);
     ["d_rep","d_fr","d_fx","d_target","learn","al_on","ai_photos","u_auto","ebay_mk","c_taux","c_vl","th_theme","th_accent","th_size","u_dl"].forEach(k=>{if(o[k]!=null)store.set(k,o[k]);});
-    applyDefs();showRecent();syncConfig();refreshSettings();toast(`Restauré : ${(o.suivi||[]).length} appareils suivis`);
+    markLocalDirty();applyDefs();showRecent();syncConfig();refreshSettings();toast(`Restauré : ${(o.suivi||[]).length} appareils suivis`);
   }catch(err){toast("Restauration impossible : "+err.message);}
 };
 
@@ -1513,7 +1631,7 @@ $("alSave").onclick=()=>{
   if(!q&&!st.cat){$("alMsg").className="kmsg ko";$("alMsg").textContent="Indique un appareil à surveiller.";return;}
   const a=store.json("alerts",[]);
   a.push({id:Date.now().toString(36),q,cat:st.cat,catName:($("cats").querySelector(".on")||{}).dataset?.n||"",mmin:+$("alM").value||40,pmax:$("alP").value,fr:$("alF").checked});
-  store.put("alerts",a);store.set("al_on","1");syncConfig();
+  store.put("alerts",a);markLocalDirty();store.set("al_on","1");syncConfig();
   if(window.Native&&Native.askNotifications)Native.askNotifications();
   sheet(null);toast("🔔 Alerte créée");
 };
@@ -1526,7 +1644,7 @@ function renderAlerts(){
     last=l.ok?`Dernière vérification : ${new Date(l.quand).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${l.trouves} affaire${l.trouves>1?"s":""}`:"Dernière vérification échouée : "+l.erreur;}catch(e){}
   $("alLast").textContent=last||(a.length?"Vérifie tes recherches toutes les heures":"Crée une alerte depuis une recherche");
 }
-function supprAlerte(id){store.put("alerts",store.json("alerts",[]).filter(x=>x.id!==id));syncConfig();renderAlerts();toast("Alerte supprimée");}
+function supprAlerte(id){store.put("alerts",store.json("alerts",[]).filter(x=>x.id!==id));markLocalDirty();syncConfig();renderAlerts();toast("Alerte supprimée");}
 $("alOn").onchange=()=>{store.set("al_on",$("alOn").checked?"1":"0");syncConfig();if($("alOn").checked&&window.Native&&Native.askNotifications)Native.askNotifications();};
 $("alRun").onclick=()=>{
   if(!window.Native||!Native.runAlerts){toast("Disponible dans l'appli Android");return;}
@@ -1610,10 +1728,10 @@ function renderStock(){
   $("stList").innerHTML=s.map((x,i)=>`<div class="it"><span class="ic">🔩</span><span class="tx">${esc(x.nom)}<small>${x.qte} en stock · ${eur(x.prix,2)} l'unité</small></span>
     <button class="del" style="color:var(--ink)" onclick="majStock(${i},-1)">−</button><button class="del" style="color:var(--ink)" onclick="majStock(${i},1)">+</button></div>`).join("");
 }
-function majStock(i,d){const s=store.json("stock",[]);if(!s[i])return;s[i].qte+=d;if(s[i].qte<=0){s.splice(i,1);toast("Pièce retirée du stock");}store.put("stock",s);renderStock();}
+function majStock(i,d){const s=store.json("stock",[]);if(!s[i])return;s[i].qte+=d;if(s[i].qte<=0){s.splice(i,1);toast("Pièce retirée du stock");}store.put("stock",s);markLocalDirty();renderStock();}
 $("stAdd").onclick=$("stForm").onsubmit=e=>{e&&e.preventDefault&&e.preventDefault();
   const nom=$("stNom").value.trim();if(!nom)return toast("Indique le nom de la pièce");
-  const s=store.json("stock",[]);s.push({nom,qte:Math.max(1,+$("stQ").value||1),prix:+$("stP").value||0});store.put("stock",s);
+  const s=store.json("stock",[]);s.push({nom,qte:Math.max(1,+$("stQ").value||1),prix:+$("stP").value||0});store.put("stock",s);markLocalDirty();
   $("stNom").value=$("stQ").value=$("stP").value="";renderStock();toast("Ajouté au stock");};
 $("cTaux").onchange=()=>{store.set("c_taux",String(+$("cTaux").value||0));toast("Taux enregistré");};
 $("cVL").onchange=()=>store.set("c_vl",$("cVL").checked?"1":"0");
@@ -1833,7 +1951,18 @@ refreshSettings();
 majQuota();
 try{const sh=window.Native&&Native.sharedText?Native.sharedText():"";if(sh)setTimeout(()=>window.__partage(sh),300);}catch(e){}
 if(store.get("onboard_done")!=="1"&&!suiviTous().length){$("onb").hidden=false;onbRender();}
-if(window.Native&&store.get("u_auto","1")==="1")setTimeout(()=>checkUpdate(false),1500);
+if(window.Native){
+  setTimeout(async()=>{
+    try{
+      await syncDepuisServeur(false,false);
+    }catch(e){
+      logErr("Synchro M710 : "+e.message);
+    }
+  },700);
+
+  if(store.get("u_auto","1")==="1")
+    setTimeout(()=>checkUpdate(false),1800);
+}
 </script>
 </body>
 </html>
