@@ -9,8 +9,15 @@ public class AlertJob extends JobService {
     @Override
     public boolean onStartJob(final JobParameters params) {
         new Thread(() -> {
-            if (params.getJobId() == Updater.JOB_ID) Updater.verifierEnFond(getApplicationContext());
-            else Alertes.lancer(getApplicationContext());
+            if (params.getJobId() == Updater.JOB_ID) {
+                Updater.verifierEnFond(getApplicationContext());
+
+            } else if (params.getJobId() == M710Deals.JOB_ID) {
+                M710Deals.lancer(getApplicationContext());
+
+            } else {
+                Alertes.lancer(getApplicationContext());
+            }
             jobFinished(params, false);
         }).start();
         return true;

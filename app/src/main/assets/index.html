@@ -1564,6 +1564,19 @@ async function loadServerDeals(manual=false){
 
     renderServerDeals();
 
+    if(
+      mapped.length &&
+      window.Native &&
+      Native.askNotifications &&
+      store.get("m710_notif_asked","0")!=="1"
+    ){
+      store.set(
+        "m710_notif_asked",
+        "1"
+      );
+      Native.askNotifications();
+    }
+
     if(mapped.length){
       const latest=Math.max(
         ...mapped.map(x=>

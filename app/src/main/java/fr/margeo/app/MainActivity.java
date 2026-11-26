@@ -178,7 +178,7 @@ public class MainActivity extends Activity {
 
         web.loadUrl("file:///android_asset/index.html");
         setContentView(web);
-        Alertes.planifier(this);
+        M710Deals.planifier(this);
         Updater.planifier(this);
     }
 
@@ -213,7 +213,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void saveConfig(String json) {
             getSharedPreferences(Alertes.PREFS, 0).edit().putString("cfg", json).apply();
-            Alertes.planifier(MainActivity.this);
+            M710Deals.planifier(MainActivity.this);
             Updater.planifier(MainActivity.this);
         }
 
